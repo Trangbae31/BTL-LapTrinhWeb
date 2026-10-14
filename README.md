@@ -6,9 +6,9 @@ Xây dựng website hỗ trợ quản lý phòng thực hành và thiết bị, 
 **Công nghệ sử dụng:** PHP, MySQL, PDO, MVC.
 
 ## 2. Thành viên nhóm
-- Nguyễn Thu Trang. MSV: 224001756
-- Phạm Phương Thảo. MSV: 224001750
 - Phạm Diệu Thanh. MSV: 224001745
+- Phạm Phương Thảo. MSV: 224001750
+- Nguyễn Thu Trang. MSV: 224001756
 - Ngô Nam Khánh. MSV: 224001725
 
 ## 3. Phân công công việc
