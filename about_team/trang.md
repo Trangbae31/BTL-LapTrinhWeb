@@ -1,5 +1,6 @@
 # THÀNH VIÊN NHÓM 2: NGUYỄN THU TRANG
-MSV: 224001756
+- MSV: 224001756
+- Username Github: Trangbae31
 ## CHỦ ĐỀ 4: HỆ THỐNG QUẢN LÝ PHÒNG THỰC HÀNH VÀ THIẾT BỊ
 **Nhiệm vụ: Quản lý đặt phòng và lịch phòng**
 - Xây dựng chức năng xem lịch phòng và kiểm tra phòng trống theo thời gian.
