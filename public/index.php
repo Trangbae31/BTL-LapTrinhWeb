@@ -6,6 +6,7 @@ require_once __DIR__ . '/../app/controllers/AuthController.php';
 require_once __DIR__ . '/../app/controllers/RoomController.php';
 require_once __DIR__ . '/../app/controllers/EquipmentController.php';
 require_once __DIR__ . '/../app/controllers/ReportController.php';
+require_once __DIR__ . '/../app/controllers/BookingController.php';
 
 // Lay action tu URL
 $action = $_GET['action'] ?? 'login';
@@ -101,6 +102,46 @@ switch ($action) {
 
         (new EquipmentController())->delete();
         break;
+
+    // =========================
+    // QUAN LY LICH PHONG VA BOOKING
+    // =========================
+
+    // Xem lich phong
+    case 'calendar':
+        if (!isset($_SESSION['user'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        (new BookingController())->calendar();
+        break;
+
+    // Hien thi form dat phong
+    case 'booking_create':
+        if (!isset($_SESSION['user'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        (new BookingController())->create();
+        break;
+
+    // Xu ly gui yeu cau dat phong
+    case 'booking_store':
+        if (!isset($_SESSION['user'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=booking_create');
+            exit();
+        }
+
+        (new BookingController())->store();
+        break;
+
 
     // =========================
     // QUAN LY BAO HONG
