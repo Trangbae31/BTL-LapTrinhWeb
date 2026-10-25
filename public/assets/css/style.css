@@ -1,0 +1,199 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+
+:root {
+    /* Bảng màu chuẩn Smart Campus */
+    --primary-color: #24483D;     /* Xanh rừng chủ đạo */
+    --primary-active: #315C4F;    /* Nền mục sidebar đang chọn */
+    --primary-light: #E8EFE8;     /* Xanh sage nhạt */
+    --bg-main: #F7F6F0;           /* Nền ivory */
+    --card-bg: #FFFFFF;           /* Nền thẻ / form */
+    --text-main: #26352E;         /* Màu chữ chính */
+    --text-sub: #66736B;          /* Màu chữ phụ */
+    --danger-color: #B45345;      /* Màu cảnh báo / xóa */
+    --neutral-color: #718096;     /* Màu nút phụ trung tính */
+    
+    /* Font & Typo quy chuẩn */
+    --font-family: 'Be Vietnam Pro', Arial, sans-serif;
+    --font-title-page: 28px;      /* 26-30px */
+    --font-title-section: 20px;   /* 18-20px */
+    --font-body: 15px;            /* 14-16px */
+    
+    /* Bo góc quy chuẩn */
+    --radius-card: 12px;
+    --radius-btn: 8px;
+    
+    /* Spacing quy chuẩn: 8px, 16px, 24px, 32px */
+    --space-xs: 8px;
+    --space-sm: 16px;
+    --space-md: 24px;
+    --space-lg: 32px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    margin: 0;
+    padding: 0;
+    font-size: var(--font-body);
+    line-height: 1.5;
+}
+
+/* Bố cục Admin/Dashboard chung (Sidebar + Content) */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar xanh rừng, chữ trắng */
+.sidebar {
+    width: 260px;
+    background-color: var(--primary-color);
+    color: #FFFFFF;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-brand {
+    padding: var(--space-md);
+    font-size: var(--font-title-section);
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: var(--space-sm) 0;
+    margin: 0;
+}
+
+.sidebar-menu li a {
+    display: block;
+    padding: 12px var(--space-md);
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.sidebar-menu li a:hover,
+.sidebar-menu li.active a {
+    background-color: var(--primary-active); /* Mục chọn có nền sáng hơn */
+    color: #FFFFFF;
+}
+
+/* Header & Main Area */
+.main-wrapper {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background-color: var(--card-bg);
+    padding: var(--space-sm) var(--space-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--primary-light);
+}
+
+.content-area {
+    padding: var(--space-lg);
+    background-color: var(--bg-main);
+    flex-grow: 1;
+}
+
+/* Kích thước tiêu đề */
+.page-title {
+    font-size: var(--font-title-page);
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: var(--space-md);
+}
+
+.section-title {
+    font-size: var(--font-title-section);
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+}
+
+/* Thẻ (Card) bo góc 12px, nền trắng */
+.card {
+    background-color: var(--card-bg);
+    border-radius: var(--radius-card);
+    padding: var(--space-md);
+    border: 1px solid var(--primary-light);
+    box-shadow: 0 2px 8px rgba(38, 53, 46, 0.05);
+    margin-bottom: var(--space-md);
+}
+
+/* Quy chuẩn Nút Bấm bo góc 8px */
+.btn {
+    font-family: var(--font-family);
+    font-size: var(--font-body);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary { background-color: var(--primary-color); color: #FFFFFF; }
+.btn-primary:hover { background-color: #1a352c; }
+
+.btn-secondary { background-color: var(--neutral-color); color: #FFFFFF; }
+.btn-danger { background-color: var(--danger-color); color: #FFFFFF; }
+
+/* Form & Input */
+.form-group {
+    margin-bottom: var(--space-sm);
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+    color: var(--text-main);
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #D0D7D3;
+    border-radius: var(--radius-btn);
+    font-family: var(--font-family);
+    font-size: var(--font-body);
+    background-color: #FFFFFF;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.input-error {
+    border-color: var(--danger-color) !important;
+    background-color: #FDF2F1;
+}
+
+.error-text {
+    color: var(--danger-color);
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .app-layout { flex-direction: column; }
+    .sidebar { width: 100%; }
+    .content-area { padding: var(--space-sm); }
+}
