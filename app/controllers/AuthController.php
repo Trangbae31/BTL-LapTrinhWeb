@@ -19,7 +19,8 @@ class AuthController {
             }
 
             if (empty($password)) {
-                $errors['password'] = 'Mật khẩu không được để trống! 6) {
+                $errors['password'] = 'Mật khẩu không được để trống!';
+            } elseif (strlen($password) < 6) {
                 $errors['password'] = 'Mật khẩu phải có ít nhất 6 ký tự.';
             }
 
