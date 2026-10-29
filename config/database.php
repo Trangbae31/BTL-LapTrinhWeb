@@ -1,42 +1,20 @@
-
 <?php
 
-class Database
-{
-    public static function connect(): PDO
-    {
-        $envPath = dirname(__DIR__) . '/.env';
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'lab_management');
 
-        if (!file_exists($envPath)) {
-            throw new RuntimeException(
-                'Chưa có file .env. Hãy sao chép .env.example thành .env và cấu hình MySQL.'
-            );
-        }
-
-        $config = parse_ini_file($envPath);
-
-        if ($config === false) {
-            throw new RuntimeException('Không đọc được file .env.');
-        }
-
-        $host = $config['DB_HOST'] ?? '127.0.0.1';
-        $port = $config['DB_PORT'] ?? '3306';
-        $dbname = $config['DB_NAME'] ?? '';
-        $username = $config['DB_USER'] ?? '';
-        $password = $config['DB_PASS'] ?? '';
-
-        if ($dbname === '' || $username === '') {
-            throw new RuntimeException(
-                'Vui lòng cấu hình DB_NAME và DB_USER trong file .env.'
-            );
-        }
-
-        $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
-
-        return new PDO($dsn, $username, $password, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+function getPDOConnection() {
+    try {
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+        return new PDO($dsn, DB_USER, DB_PASS, $options);
+    } catch (PDOException $e) {
+        die("Lỗi kết nối CSDL: " . $e->getMessage());
     }
 }

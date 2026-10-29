@@ -1,6 +1,7 @@
 <?php
-session_start();
-
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 class AuthController {
     
     // Hàm hiển thị & xử lý Form Đăng Nhập
@@ -27,6 +28,7 @@ class AuthController {
             // 3. Nếu không có lỗi -> Giả lập đăng nhập thành công
             if (empty($errors)) {
                 $_SESSION['user'] = [
+                    'user_id' => 1,
                     'username' => $username,
                     'fullname' => 'Trịnh Xuân Trường',
                     'role'     => 'admin'
