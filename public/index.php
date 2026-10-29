@@ -2,6 +2,15 @@
 <?php
 
 require_once __DIR__ . '/../config/database.php';
+
+// Khoi tao ket noi database
+$pdo = Database::connect();
+
+// Khoi tao session neu chua co
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../app/controllers/AuthController.php';
 require_once __DIR__ . '/../app/controllers/RoomController.php';
 require_once __DIR__ . '/../app/controllers/EquipmentController.php';
@@ -16,10 +25,7 @@ $authController = new AuthController();
 
 switch ($action) {
 
-    // =========================
     // DANG NHAP / DANG XUAT
-    // =========================
-
     case 'login':
         $authController->login();
         break;
@@ -28,10 +34,7 @@ switch ($action) {
         $authController->logout();
         break;
 
-    // =========================
     // TRANG CHU
-    // =========================
-
     case 'dashboard':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -41,10 +44,7 @@ switch ($action) {
         require_once __DIR__ . '/../app/views/dashboard.php';
         break;
 
-    // =========================
     // QUAN LY PHONG
-    // =========================
-
     case 'rooms':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -72,10 +72,7 @@ switch ($action) {
         (new RoomController())->delete();
         break;
 
-    // =========================
     // QUAN LY THIET BI
-    // =========================
-
     case 'equipment':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -103,11 +100,7 @@ switch ($action) {
         (new EquipmentController())->delete();
         break;
 
-    // =========================
     // QUAN LY LICH PHONG VA BOOKING
-    // =========================
-
-    // Xem lich phong
     case 'calendar':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -117,7 +110,6 @@ switch ($action) {
         (new BookingController())->calendar();
         break;
 
-    // Hien thi form dat phong
     case 'booking_create':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -127,7 +119,6 @@ switch ($action) {
         (new BookingController())->create();
         break;
 
-    // Xu ly gui yeu cau dat phong
     case 'booking_store':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -142,13 +133,9 @@ switch ($action) {
         (new BookingController())->store();
         break;
 
-
-    // =========================
-    // QUAN LY BAO HONG
-    // =========================
-
-    // Xem danh sach phieu bao hong
+    // QUAN LY BAO HONG VA BAO TRI
     case 'reports':
+    case 'report_list':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
             exit();
@@ -157,7 +144,7 @@ switch ($action) {
         (new ReportController())->index();
         break;
 
-    // Hien thi form bao hong
+    // HIEN THI FORM TAO PHIEU
     case 'report_form':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -167,7 +154,7 @@ switch ($action) {
         (new ReportController())->create();
         break;
 
-    // Luu phieu bao hong moi
+    // LUU PHIEU MOI
     case 'report_store':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -182,7 +169,32 @@ switch ($action) {
         (new ReportController())->store();
         break;
 
-    // Xem lich su xu ly phieu bao hong
+    // HIEN THI FORM SUA PHIEU
+    case 'report_edit':
+        if (!isset($_SESSION['user'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        (new ReportController())->edit();
+        break;
+
+    // LUU THAY DOI THONG TIN PHIEU
+    case 'report_update_info':
+        if (!isset($_SESSION['user'])) {
+            header('Location: index.php?action=login');
+            exit();
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?action=report_list');
+            exit();
+        }
+
+        (new ReportController())->update();
+        break;
+
+    // XEM LICH SU BAO HONG
     case 'report_history':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -192,7 +204,7 @@ switch ($action) {
         (new ReportController())->history();
         break;
 
-    // Cap nhat trang thai bao hong
+    // CAP NHAT TRANG THAI BAO HONG
     case 'report_update':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
@@ -200,17 +212,14 @@ switch ($action) {
         }
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=reports');
+            header('Location: index.php?action=report_list');
             exit();
         }
 
         (new ReportController())->updateStatus();
         break;
 
-    // =========================
     // ACTION KHONG TON TAI
-    // =========================
-
     default:
         http_response_code(404);
         echo 'Khong tim thay chuc nang nay.';
