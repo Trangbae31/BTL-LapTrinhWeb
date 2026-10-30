@@ -1,5 +1,5 @@
-
 <?php
+
 require_once __DIR__ . '/../../config/database.php';
 
 class BookingModel
@@ -11,12 +11,13 @@ class BookingModel
         $this->db = Database::connect();
     }
 
-    // Lấy danh sách booking kèm thông tin người đặt và phòng
-    public function getAllBookings(): array
+    // Lấy danh sách lịch phòng, có tìm kiếm
+    public function getAllBookings(string $keyword = ''): array
     {
         $sql = "
             SELECT
                 b.booking_id,
+                b.user_id,
                 u.full_name AS user_name,
                 r.room_code,
                 r.room_name,
@@ -28,11 +29,28 @@ class BookingModel
             FROM bookings b
             INNER JOIN users u ON b.user_id = u.user_id
             INNER JOIN rooms r ON b.room_id = r.room_id
+            WHERE (
+                :keyword = ''
+                OR r.room_code LIKE :search1
+                OR r.room_name LIKE :search2
+                OR b.title LIKE :search3
+                OR b.purpose LIKE :search4
+                OR u.full_name LIKE :search5
+            )
             ORDER BY b.start_time ASC
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute();
+       $search = '%' . $keyword . '%';
+
+        $stmt->execute([
+            'keyword' => $keyword,
+            'search1' => $search,
+            'search2' => $search,
+            'search3' => $search,
+            'search4' => $search,
+            'search5' => $search
+        ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -53,35 +71,32 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Lấy booking đang chờ duyệt
-    public function getPendingBookings(): array
+    // Lấy một yêu cầu đặt phòng của đúng người dùng
+    public function getBookingById(int $bookingId, int $userId): array|false
     {
         $sql = "
-            SELECT
-                b.booking_id,
-                u.full_name AS user_name,
-                r.room_name,
-                b.title,
-                b.start_time,
-                b.end_time
-            FROM bookings b
-            INNER JOIN users u ON b.user_id = u.user_id
-            INNER JOIN rooms r ON b.room_id = r.room_id
-            WHERE b.status = 'pending'
-            ORDER BY b.start_time ASC
+            SELECT *
+            FROM bookings
+            WHERE booking_id = :booking_id
+              AND user_id = :user_id
+            LIMIT 1
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute();
+        $stmt->execute([
+            'booking_id' => $bookingId,
+            'user_id' => $userId
+        ]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Kiểm tra phòng có booking bị trùng thời gian hay không
+    // Kiểm tra trùng lịch
     public function hasOverlappingBooking(
         int $roomId,
         string $startTime,
-        string $endTime
+        string $endTime,
+        int $excludeBookingId = 0
     ): bool {
         $sql = "
             SELECT COUNT(*)
@@ -90,19 +105,21 @@ class BookingModel
               AND status IN ('pending', 'approved')
               AND start_time < :end_time
               AND end_time > :start_time
+              AND booking_id != :exclude_id
         ";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             'room_id' => $roomId,
             'start_time' => $startTime,
-            'end_time' => $endTime
+            'end_time' => $endTime,
+            'exclude_id' => $excludeBookingId
         ]);
 
-    return (int) $stmt->fetchColumn() > 0;
+        return (int) $stmt->fetchColumn() > 0;
     }
 
-    // Tạo yêu cầu đặt phòng mới
+    // Tạo yêu cầu đặt phòng
     public function createBooking(
         int $userId,
         int $roomId,
@@ -111,51 +128,38 @@ class BookingModel
         string $startTime,
         string $endTime
     ): bool {
-        // Kiểm tra thời gian hợp lệ
-        if (strtotime($startTime) === false ||
+        if (
+            strtotime($startTime) === false ||
             strtotime($endTime) === false ||
-            strtotime($startTime) >= strtotime($endTime)) {
+            strtotime($startTime) >= strtotime($endTime)
+        ) {
             return false;
         }
 
-        // Kiểm tra phòng có đang hoạt động không
-        $roomSql = "
+        $roomStmt = $this->db->prepare("
             SELECT COUNT(*)
             FROM rooms
             WHERE room_id = :room_id
-            AND status = 'active'
-        ";
-
-        $roomStmt = $this->db->prepare($roomSql);
+              AND status = 'active'
+        ");
         $roomStmt->execute(['room_id' => $roomId]);
 
         if ((int) $roomStmt->fetchColumn() === 0) {
             return false;
         }
 
-        // Không cho đặt trùng lịch
         if ($this->hasOverlappingBooking($roomId, $startTime, $endTime)) {
             return false;
         }
 
-        // Lưu yêu cầu với trạng thái chờ duyệt
         $sql = "
             INSERT INTO bookings (
-                user_id,
-                room_id,
-                title,
-                purpose,
-                start_time,
-                end_time,
-                status
-            ) VALUES (
-                :user_id,
-                :room_id,
-                :title,
-                :purpose,
-                :start_time,
-                :end_time,
-                'pending'
+                user_id, room_id, title, purpose,
+                start_time, end_time, status
+            )
+            VALUES (
+                :user_id, :room_id, :title, :purpose,
+                :start_time, :end_time, 'pending'
             )
         ";
 
@@ -171,4 +175,94 @@ class BookingModel
         ]);
     }
 
+    // Cập nhật yêu cầu đang chờ duyệt
+    public function updateBooking(
+        int $bookingId,
+        int $userId,
+        int $roomId,
+        string $title,
+        string $purpose,
+        string $startTime,
+        string $endTime
+    ): bool {
+        if (
+            strtotime($startTime) === false ||
+            strtotime($endTime) === false ||
+            strtotime($startTime) >= strtotime($endTime)
+        ) {
+            return false;
+        }
+
+        $booking = $this->getBookingById($bookingId, $userId);
+
+        if (!$booking || $booking['status'] !== 'pending') {
+            return false;
+        }
+
+        $roomStmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM rooms
+            WHERE room_id = :room_id
+              AND status = 'active'
+        ");
+        $roomStmt->execute(['room_id' => $roomId]);
+
+        if ((int) $roomStmt->fetchColumn() === 0) {
+            return false;
+        }
+
+        if ($this->hasOverlappingBooking(
+            $roomId,
+            $startTime,
+            $endTime,
+            $bookingId
+        )) {
+            return false;
+        }
+
+        $sql = "
+            UPDATE bookings
+            SET room_id = :room_id,
+                title = :title,
+                purpose = :purpose,
+                start_time = :start_time,
+                end_time = :end_time
+            WHERE booking_id = :booking_id
+              AND user_id = :user_id
+              AND status = 'pending'
+        ";
+
+        $stmt = $this->db->prepare($sql);
+
+        return $stmt->execute([
+            'room_id' => $roomId,
+            'title' => $title,
+            'purpose' => $purpose,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'booking_id' => $bookingId,
+            'user_id' => $userId
+        ]);
+    }
+
+    // Hủy yêu cầu đang chờ duyệt
+    public function cancelBooking(int $bookingId, int $userId): bool
+    {
+        $sql = "
+            UPDATE bookings
+            SET status = 'cancelled'
+            WHERE booking_id = :booking_id
+              AND user_id = :user_id
+              AND status = 'pending'
+        ";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            'booking_id' => $bookingId,
+            'user_id' => $userId
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
 }

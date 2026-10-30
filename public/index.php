@@ -119,6 +119,22 @@ switch ($action) {
         (new BookingController())->create();
         break;
 
+    // Sửa yêu cầu đặt phòng
+    case 'booking_edit':
+        (new BookingController())->edit();
+        break;
+
+    // Cập nhật yêu cầu đặt phòng
+    case 'booking_update':
+        (new BookingController())->update();
+        break;
+
+    // Hủy yêu cầu đặt phòng
+    case 'booking_cancel':
+        (new BookingController())->cancel();
+        break;
+
+    // Xu ly gui yeu cau dat phong
     case 'booking_store':
         if (!isset($_SESSION['user'])) {
             header('Location: index.php?action=login');
