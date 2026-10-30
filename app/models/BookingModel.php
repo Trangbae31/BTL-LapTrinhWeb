@@ -11,9 +11,14 @@ class BookingModel
         $this->db = Database::connect();
     }
 
-    // Lấy danh sách lịch phòng, có tìm kiếm
-    public function getAllBookings(string $keyword = ''): array
-    {
+    /**
+     * Lấy lịch phòng.
+     * Hiển thị lịch đã duyệt và yêu cầu của chính người dùng.
+     */
+    public function getAllBookings(
+        string $keyword = '',
+        int $userId = 0
+    ): array {
         $sql = "
             SELECT
                 b.booking_id,
@@ -30,6 +35,10 @@ class BookingModel
             INNER JOIN users u ON b.user_id = u.user_id
             INNER JOIN rooms r ON b.room_id = r.room_id
             WHERE (
+                b.status = 'approved'
+                OR (:user_id > 0 AND b.user_id = :user_id_2)
+            )
+            AND (
                 :keyword = ''
                 OR r.room_code LIKE :search1
                 OR r.room_name LIKE :search2
@@ -40,10 +49,13 @@ class BookingModel
             ORDER BY b.start_time ASC
         ";
 
+        $search = '%' . $keyword . '%';
+
         $stmt = $this->db->prepare($sql);
-       $search = '%' . $keyword . '%';
 
         $stmt->execute([
+            'user_id' => $userId,
+            'user_id_2' => $userId,
             'keyword' => $keyword,
             'search1' => $search,
             'search2' => $search,
@@ -55,11 +67,17 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Lấy danh sách phòng đang hoạt động
+    /**
+     * Lấy danh sách phòng đang hoạt động.
+     */
     public function getActiveRooms(): array
     {
         $sql = "
-            SELECT room_id, room_code, room_name, capacity
+            SELECT
+                room_id,
+                room_code,
+                room_name,
+                capacity
             FROM rooms
             WHERE status = 'active'
             ORDER BY room_name ASC
@@ -71,9 +89,13 @@ class BookingModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Lấy một yêu cầu đặt phòng của đúng người dùng
-    public function getBookingById(int $bookingId, int $userId): array|false
-    {
+    /**
+     * Lấy yêu cầu đặt phòng của đúng người dùng.
+     */
+    public function getBookingById(
+        int $bookingId,
+        int $userId
+    ): array|false {
         $sql = "
             SELECT *
             FROM bookings
@@ -83,6 +105,7 @@ class BookingModel
         ";
 
         $stmt = $this->db->prepare($sql);
+
         $stmt->execute([
             'booking_id' => $bookingId,
             'user_id' => $userId
@@ -91,7 +114,12 @@ class BookingModel
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Kiểm tra trùng lịch
+    /**
+     * Kiểm tra phòng có lịch bị trùng không.
+     * Hai khoảng thời gian trùng nếu:
+     * Lịch cũ bắt đầu trước khi lịch mới kết thúc
+     * và lịch cũ kết thúc sau khi lịch mới bắt đầu.
+     */
     public function hasOverlappingBooking(
         int $roomId,
         string $startTime,
@@ -105,10 +133,11 @@ class BookingModel
               AND status IN ('pending', 'approved')
               AND start_time < :end_time
               AND end_time > :start_time
-              AND booking_id != :exclude_id
+              AND booking_id <> :exclude_id
         ";
 
         $stmt = $this->db->prepare($sql);
+
         $stmt->execute([
             'room_id' => $roomId,
             'start_time' => $startTime,
@@ -116,10 +145,46 @@ class BookingModel
             'exclude_id' => $excludeBookingId
         ]);
 
-        return (int) $stmt->fetchColumn() > 0;
+        return (int)$stmt->fetchColumn() > 0;
     }
 
-    // Tạo yêu cầu đặt phòng
+    /**
+     * Khóa và kiểm tra phòng đang hoạt động.
+     * Phải được gọi bên trong transaction.
+     */
+    private function lockActiveRoom(int $roomId): bool
+    {
+        $stmt = $this->db->prepare("
+            SELECT room_id
+            FROM rooms
+            WHERE room_id = :room_id
+              AND status = 'active'
+            FOR UPDATE
+        ");
+
+        $stmt->execute(['room_id' => $roomId]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+    }
+
+    /**
+     * Kiểm tra khoảng thời gian hợp lệ.
+     */
+    private function isValidTime(
+        string $startTime,
+        string $endTime
+    ): bool {
+        $start = strtotime($startTime);
+        $end = strtotime($endTime);
+
+        return $start !== false
+            && $end !== false
+            && $start < $end;
+    }
+
+    /**
+     * Tạo yêu cầu đặt phòng.
+     */
     public function createBooking(
         int $userId,
         int $roomId,
@@ -129,53 +194,83 @@ class BookingModel
         string $endTime
     ): bool {
         if (
-            strtotime($startTime) === false ||
-            strtotime($endTime) === false ||
-            strtotime($startTime) >= strtotime($endTime)
+            $userId <= 0 ||
+            $roomId <= 0 ||
+            trim($title) === '' ||
+            trim($purpose) === '' ||
+            !$this->isValidTime($startTime, $endTime)
         ) {
             return false;
         }
 
-        $roomStmt = $this->db->prepare("
-            SELECT COUNT(*)
-            FROM rooms
-            WHERE room_id = :room_id
-              AND status = 'active'
-        ");
-        $roomStmt->execute(['room_id' => $roomId]);
+        try {
+            $this->db->beginTransaction();
 
-        if ((int) $roomStmt->fetchColumn() === 0) {
+            // Khóa phòng để tránh xử lý đồng thời gây đặt trùng.
+            if (!$this->lockActiveRoom($roomId)) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            if ($this->hasOverlappingBooking(
+                $roomId,
+                $startTime,
+                $endTime
+            )) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            $sql = "
+                INSERT INTO bookings (
+                    user_id,
+                    room_id,
+                    title,
+                    purpose,
+                    start_time,
+                    end_time,
+                    status
+                )
+                VALUES (
+                    :user_id,
+                    :room_id,
+                    :title,
+                    :purpose,
+                    :start_time,
+                    :end_time,
+                    'pending'
+                )
+            ";
+
+            $stmt = $this->db->prepare($sql);
+
+            $stmt->execute([
+                'user_id' => $userId,
+                'room_id' => $roomId,
+                'title' => trim($title),
+                'purpose' => trim($purpose),
+                'start_time' => $startTime,
+                'end_time' => $endTime
+            ]);
+
+            $this->db->commit();
+
+            return true;
+
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            error_log('Create booking error: ' . $e->getMessage());
+
             return false;
         }
-
-        if ($this->hasOverlappingBooking($roomId, $startTime, $endTime)) {
-            return false;
-        }
-
-        $sql = "
-            INSERT INTO bookings (
-                user_id, room_id, title, purpose,
-                start_time, end_time, status
-            )
-            VALUES (
-                :user_id, :room_id, :title, :purpose,
-                :start_time, :end_time, 'pending'
-            )
-        ";
-
-        $stmt = $this->db->prepare($sql);
-
-        return $stmt->execute([
-            'user_id' => $userId,
-            'room_id' => $roomId,
-            'title' => $title,
-            'purpose' => $purpose,
-            'start_time' => $startTime,
-            'end_time' => $endTime
-        ]);
     }
 
-    // Cập nhật yêu cầu đang chờ duyệt
+    /**
+     * Cập nhật yêu cầu đang chờ duyệt.
+     */
     public function updateBooking(
         int $bookingId,
         int $userId,
@@ -186,68 +281,100 @@ class BookingModel
         string $endTime
     ): bool {
         if (
-            strtotime($startTime) === false ||
-            strtotime($endTime) === false ||
-            strtotime($startTime) >= strtotime($endTime)
+            $bookingId <= 0 ||
+            $userId <= 0 ||
+            $roomId <= 0 ||
+            trim($title) === '' ||
+            trim($purpose) === '' ||
+            !$this->isValidTime($startTime, $endTime)
         ) {
             return false;
         }
 
-        $booking = $this->getBookingById($bookingId, $userId);
+        try {
+            $this->db->beginTransaction();
 
-        if (!$booking || $booking['status'] !== 'pending') {
+            $stmt = $this->db->prepare("
+                SELECT booking_id, status
+                FROM bookings
+                WHERE booking_id = :booking_id
+                  AND user_id = :user_id
+                FOR UPDATE
+            ");
+
+            $stmt->execute([
+                'booking_id' => $bookingId,
+                'user_id' => $userId
+            ]);
+
+            $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$booking || $booking['status'] !== 'pending') {
+                $this->db->rollBack();
+                return false;
+            }
+
+            if (!$this->lockActiveRoom($roomId)) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            if ($this->hasOverlappingBooking(
+                $roomId,
+                $startTime,
+                $endTime,
+                $bookingId
+            )) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            $sql = "
+                UPDATE bookings
+                SET room_id = :room_id,
+                    title = :title,
+                    purpose = :purpose,
+                    start_time = :start_time,
+                    end_time = :end_time
+                WHERE booking_id = :booking_id
+                  AND user_id = :user_id
+                  AND status = 'pending'
+            ";
+
+            $update = $this->db->prepare($sql);
+
+            $update->execute([
+                'room_id' => $roomId,
+                'title' => trim($title),
+                'purpose' => trim($purpose),
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'booking_id' => $bookingId,
+                'user_id' => $userId
+            ]);
+
+            $this->db->commit();
+
+            return true;
+
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            error_log('Update booking error: ' . $e->getMessage());
+
             return false;
         }
-
-        $roomStmt = $this->db->prepare("
-            SELECT COUNT(*)
-            FROM rooms
-            WHERE room_id = :room_id
-              AND status = 'active'
-        ");
-        $roomStmt->execute(['room_id' => $roomId]);
-
-        if ((int) $roomStmt->fetchColumn() === 0) {
-            return false;
-        }
-
-        if ($this->hasOverlappingBooking(
-            $roomId,
-            $startTime,
-            $endTime,
-            $bookingId
-        )) {
-            return false;
-        }
-
-        $sql = "
-            UPDATE bookings
-            SET room_id = :room_id,
-                title = :title,
-                purpose = :purpose,
-                start_time = :start_time,
-                end_time = :end_time
-            WHERE booking_id = :booking_id
-              AND user_id = :user_id
-              AND status = 'pending'
-        ";
-
-        $stmt = $this->db->prepare($sql);
-
-        return $stmt->execute([
-            'room_id' => $roomId,
-            'title' => $title,
-            'purpose' => $purpose,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
-            'booking_id' => $bookingId,
-            'user_id' => $userId
-        ]);
     }
 
-    // Hủy yêu cầu đang chờ duyệt
-    public function cancelBooking(int $bookingId, int $userId): bool
-    {
+    /**
+     * Hủy yêu cầu đang chờ duyệt.
+     */
+    public function cancelBooking(
+        int $bookingId,
+        int $userId
+    ): bool {
         $sql = "
             UPDATE bookings
             SET status = 'cancelled'

@@ -1,10 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/BookingModel.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../core/Authorization.php';
 
 class BookingController
 {
@@ -15,32 +12,100 @@ class BookingController
         $this->bookingModel = new BookingModel();
     }
 
+    /**
+     * Chỉ giảng viên được sử dụng chức năng đặt phòng.
+     */
     private function requireTeacher(): int
     {
-        if (
-            !isset($_SESSION['user']) ||
-            !in_array('teacher', $_SESSION['user']['roles'] ?? [], true)
-        ) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        return (int) $_SESSION['user']['user_id'];
+        Authorization::requireRole(['teacher']);
+        return Authorization::userId();
     }
 
-    // Xem lịch phòng và tìm kiếm yêu cầu đặt phòng
+    /**
+     * Chuyển hướng kèm thông báo.
+     */
+    private function redirect(string $message = ''): void
+    {
+        $url = 'index.php?action=calendar';
+
+        if ($message !== '') {
+            $url .= '&message=' . urlencode($message);
+        }
+
+        header('Location: ' . $url);
+        exit();
+    }
+
+    /**
+     * Kiểm tra dữ liệu thời gian.
+     */
+    private function validateBookingData(
+        int $roomId,
+        string $title,
+        string $purpose,
+        string $bookingDate,
+        string $startHour,
+        string $endHour
+    ): array {
+        $errors = [];
+
+        if ($roomId <= 0) {
+            $errors[] = 'Vui lòng chọn phòng.';
+        }
+
+        if ($title === '') {
+            $errors[] = 'Vui lòng nhập tiêu đề đặt phòng.';
+        } elseif (mb_strlen($title) > 200) {
+            $errors[] = 'Tiêu đề không được vượt quá 200 ký tự.';
+        }
+
+        if ($purpose === '') {
+            $errors[] = 'Vui lòng nhập mục đích sử dụng.';
+        }
+
+        $date = DateTime::createFromFormat('!Y-m-d', $bookingDate);
+        $validDate = $date && $date->format('Y-m-d') === $bookingDate;
+
+        $validStart = preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $startHour);
+        $validEnd = preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $endHour);
+
+        if (!$validDate || !$validStart || !$validEnd) {
+            $errors[] = 'Ngày hoặc giờ đặt phòng không hợp lệ.';
+            return $errors;
+        }
+
+        $startTime = strtotime($bookingDate . ' ' . $startHour);
+        $endTime = strtotime($bookingDate . ' ' . $endHour);
+
+        if ($startTime <= time()) {
+            $errors[] = 'Thời gian đặt phòng phải ở trong tương lai.';
+        }
+
+        if ($startTime >= $endTime) {
+            $errors[] = 'Thời gian kết thúc phải sau thời gian bắt đầu.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Xem lịch phòng.
+     */
     public function calendar(): void
     {
         $userId = $this->requireTeacher();
+
         $keyword = trim($_GET['keyword'] ?? '');
 
-        $bookings = $this->bookingModel->getAllBookings($keyword);
+        $bookings = $this->bookingModel->getAllBookings($keyword, $userId);
         $rooms = $this->bookingModel->getActiveRooms();
 
         require __DIR__ . '/../views/booking_calendar.php';
     }
 
-    // Hiển thị form tạo yêu cầu
+    /**
+     * Hiển thị form tạo yêu cầu.
+     */
     public function create(): void
     {
         $this->requireTeacher();
@@ -51,49 +116,37 @@ class BookingController
         require __DIR__ . '/../views/booking_form.php';
     }
 
-    // Lưu yêu cầu đặt phòng
+    /**
+     * Lưu yêu cầu đặt phòng.
+     */
     public function store(): void
     {
         $userId = $this->requireTeacher();
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=booking_create');
-            exit();
+            $this->redirect();
         }
 
-        $roomId = (int) ($_POST['room_id'] ?? 0);
+        $roomId = (int)($_POST['room_id'] ?? 0);
         $title = trim($_POST['title'] ?? '');
         $purpose = trim($_POST['purpose'] ?? '');
-        $bookingDate = $_POST['booking_date'] ?? '';
-        $startHour = $_POST['start_time'] ?? '';
-        $endHour = $_POST['end_time'] ?? '';
+        $bookingDate = trim($_POST['booking_date'] ?? '');
+        $startHour = trim($_POST['start_time'] ?? '');
+        $endHour = trim($_POST['end_time'] ?? '');
 
-        $startTime = $bookingDate . ' ' . $startHour . ':00';
-        $endTime = $bookingDate . ' ' . $endHour . ':00';
-
-        $errors = [];
-
-        if ($roomId <= 0) {
-            $errors[] = 'Vui lòng chọn phòng.';
-        }
-
-        if ($title === '') {
-            $errors[] = 'Vui lòng nhập tiêu đề đặt phòng.';
-        }
-
-        if ($purpose === '') {
-            $errors[] = 'Vui lòng nhập mục đích sử dụng.';
-        }
-
-        if (
-            strtotime($startTime) === false ||
-            strtotime($endTime) === false ||
-            strtotime($startTime) >= strtotime($endTime)
-        ) {
-            $errors[] = 'Thời gian kết thúc phải sau thời gian bắt đầu.';
-        }
+        $errors = $this->validateBookingData(
+            $roomId,
+            $title,
+            $purpose,
+            $bookingDate,
+            $startHour,
+            $endHour
+        );
 
         if (empty($errors)) {
+            $startTime = $bookingDate . ' ' . $startHour . ':00';
+            $endTime = $bookingDate . ' ' . $endHour . ':00';
+
             $success = $this->bookingModel->createBooking(
                 $userId,
                 $roomId,
@@ -104,28 +157,32 @@ class BookingController
             );
 
             if ($success) {
-                header('Location: index.php?action=calendar&message=created');
-                exit();
+                $this->redirect('created');
             }
 
-            $errors[] = 'Không thể đặt phòng. Phòng có thể đã được đặt trong khoảng thời gian này.';
+            $errors[] = 'Không thể gửi yêu cầu. Phòng có thể đã có lịch trùng hoặc không còn hoạt động.';
         }
 
         $rooms = $this->bookingModel->getActiveRooms();
+
         require __DIR__ . '/../views/booking_form.php';
     }
 
-    // Hiển thị form sửa yêu cầu
+    /**
+     * Hiển thị form sửa yêu cầu.
+     */
     public function edit(): void
     {
         $userId = $this->requireTeacher();
-        $bookingId = (int) ($_GET['id'] ?? 0);
+        $bookingId = (int)($_GET['id'] ?? 0);
 
-        $booking = $this->bookingModel->getBookingById($bookingId, $userId);
+        $booking = $this->bookingModel->getBookingById(
+            $bookingId,
+            $userId
+        );
 
         if (!$booking || $booking['status'] !== 'pending') {
-            header('Location: index.php?action=calendar&message=not_allowed');
-            exit();
+            $this->redirect('not_allowed');
         }
 
         $rooms = $this->bookingModel->getActiveRooms();
@@ -134,39 +191,52 @@ class BookingController
         require __DIR__ . '/../views/booking_edit.php';
     }
 
-    // Cập nhật yêu cầu
+    /**
+     * Cập nhật yêu cầu đặt phòng.
+     */
     public function update(): void
     {
         $userId = $this->requireTeacher();
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=calendar');
-            exit();
+            $this->redirect();
         }
 
-        $bookingId = (int) ($_GET['id'] ?? 0);
-        $roomId = (int) ($_POST['room_id'] ?? 0);
+        $bookingId = (int)($_GET['id'] ?? 0);
+
+        $roomId = (int)($_POST['room_id'] ?? 0);
         $title = trim($_POST['title'] ?? '');
         $purpose = trim($_POST['purpose'] ?? '');
+        $bookingDate = trim($_POST['booking_date'] ?? '');
+        $startHour = trim($_POST['start_time'] ?? '');
+        $endHour = trim($_POST['end_time'] ?? '');
 
-        $bookingDate = $_POST['booking_date'] ?? '';
-        $startHour = $_POST['start_time'] ?? '';
-        $endHour = $_POST['end_time'] ?? '';
+        $booking = $this->bookingModel->getBookingById(
+            $bookingId,
+            $userId
+        );
+
+        if (!$booking || $booking['status'] !== 'pending') {
+            $this->redirect('not_allowed');
+        }
+
+        $errors = $this->validateBookingData(
+            $roomId,
+            $title,
+            $purpose,
+            $bookingDate,
+            $startHour,
+            $endHour
+        );
+
+        if (!empty($errors)) {
+            $_SESSION['booking_errors'] = $errors;
+            header('Location: index.php?action=booking_edit&id=' . $bookingId);
+            exit();
+        }
 
         $startTime = $bookingDate . ' ' . $startHour . ':00';
         $endTime = $bookingDate . ' ' . $endHour . ':00';
-
-        if (
-            $roomId <= 0 ||
-            $title === '' ||
-            $purpose === '' ||
-            strtotime($startTime) === false ||
-            strtotime($endTime) === false ||
-            strtotime($startTime) >= strtotime($endTime)
-        ) {
-            header('Location: index.php?action=booking_edit&id=' . $bookingId . '&message=invalid');
-            exit();
-        }
 
         $success = $this->bookingModel->updateBooking(
             $bookingId,
@@ -178,29 +248,31 @@ class BookingController
             $endTime
         );
 
-        $message = $success ? 'updated' : 'update_failed';
-
-        header('Location: index.php?action=calendar&message=' . $message);
-        exit();
+        $this->redirect($success ? 'updated' : 'update_failed');
     }
 
-    // Hủy yêu cầu đặt phòng
+    /**
+     * Hủy yêu cầu đặt phòng.
+     */
     public function cancel(): void
     {
         $userId = $this->requireTeacher();
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=calendar');
-            exit();
+            $this->redirect();
         }
 
-        $bookingId = (int) ($_GET['id'] ?? 0);
+        $bookingId = (int)($_POST['booking_id'] ?? $_GET['id'] ?? 0);
 
-        $success = $this->bookingModel->cancelBooking($bookingId, $userId);
+        if ($bookingId <= 0) {
+            $this->redirect('cancel_failed');
+        }
 
-        $message = $success ? 'cancelled' : 'cancel_failed';
+        $success = $this->bookingModel->cancelBooking(
+            $bookingId,
+            $userId
+        );
 
-        header('Location: index.php?action=calendar&message=' . $message);
-        exit();
+        $this->redirect($success ? 'cancelled' : 'cancel_failed');
     }
 }

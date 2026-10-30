@@ -1,4 +1,3 @@
-
 <?php
 
 require_once __DIR__ . '/../../config/database.php';
@@ -12,44 +11,57 @@ class EquipmentModel
         $this->db = Database::connect();
     }
 
-    // Lay danh sach thiet bi
+    /**
+     * Lấy toàn bộ thiết bị.
+     */
     public function getAll(): array
     {
-        $sql = "SELECT e.*,
-                       r.room_code,
-                       r.room_name,
-                       t.type_name
-                FROM equipment e
-                LEFT JOIN rooms r
-                    ON e.room_id = r.room_id
-                LEFT JOIN equipment_types t
-                    ON e.equipment_type_id = t.equipment_type_id
-                ORDER BY e.equipment_id DESC";
+        $sql = "
+            SELECT
+                e.*,
+                r.room_code,
+                r.room_name,
+                t.type_name
+            FROM equipment e
+            LEFT JOIN rooms r
+                ON e.room_id = r.room_id
+            LEFT JOIN equipment_types t
+                ON e.equipment_type_id = t.equipment_type_id
+            ORDER BY e.equipment_id DESC
+        ";
 
-        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db
+            ->query($sql)
+            ->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Tim kiem thiet bi theo ma, ten, phong hoac loai
+    /**
+     * Tìm kiếm thiết bị.
+     */
     public function search(string $keyword): array
     {
-        $sql = "SELECT e.*,
-                       r.room_code,
-                       r.room_name,
-                       t.type_name
-                FROM equipment e
-                LEFT JOIN rooms r
-                    ON e.room_id = r.room_id
-                LEFT JOIN equipment_types t
-                    ON e.equipment_type_id = t.equipment_type_id
-                WHERE e.equipment_code LIKE ?
-                   OR e.equipment_name LIKE ?
-                   OR e.brand LIKE ?
-                   OR r.room_code LIKE ?
-                   OR r.room_name LIKE ?
-                   OR t.type_name LIKE ?
-                ORDER BY e.equipment_id DESC";
+        $sql = "
+            SELECT
+                e.*,
+                r.room_code,
+                r.room_name,
+                t.type_name
+            FROM equipment e
+            LEFT JOIN rooms r
+                ON e.room_id = r.room_id
+            LEFT JOIN equipment_types t
+                ON e.equipment_type_id = t.equipment_type_id
+            WHERE e.equipment_code LIKE ?
+               OR e.equipment_name LIKE ?
+               OR e.brand LIKE ?
+               OR r.room_code LIKE ?
+               OR r.room_name LIKE ?
+               OR t.type_name LIKE ?
+            ORDER BY e.equipment_id DESC
+        ";
 
         $stmt = $this->db->prepare($sql);
+
         $keyword = '%' . $keyword . '%';
 
         $stmt->execute([
@@ -64,54 +76,80 @@ class EquipmentModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Lay mot thiet bi theo ID
+    /**
+     * Lấy thiết bị theo ID.
+     */
     public function getById(int $id): ?array
     {
-        $stmt = $this->db->prepare(
-            "SELECT * FROM equipment WHERE equipment_id = ?"
-        );
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM equipment
+            WHERE equipment_id = ?
+        ");
 
         $stmt->execute([$id]);
+
         $equipment = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $equipment ?: null;
     }
 
-    // Lay danh sach phong
+    /**
+     * Lấy danh sách phòng đang hoạt động.
+     */
     public function getRooms(): array
     {
-        $sql = "SELECT room_id, room_code, room_name
-                FROM rooms
-                ORDER BY room_code";
+        $sql = "
+            SELECT
+                room_id,
+                room_code,
+                room_name
+            FROM rooms
+            WHERE status = 'active'
+            ORDER BY room_code
+        ";
 
-        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db
+            ->query($sql)
+            ->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Lay danh sach loai thiet bi
+    /**
+     * Lấy danh sách loại thiết bị.
+     */
     public function getTypes(): array
     {
-        $sql = "SELECT equipment_type_id, type_name
-                FROM equipment_types
-                ORDER BY type_name";
+        $sql = "
+            SELECT
+                equipment_type_id,
+                type_name
+            FROM equipment_types
+            ORDER BY type_name
+        ";
 
-        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db
+            ->query($sql)
+            ->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Them thiet bi
+    /**
+     * Thêm thiết bị.
+     */
     public function create(array $data): bool
     {
-        $sql = "INSERT INTO equipment
-                (
-                    room_id,
-                    equipment_type_id,
-                    equipment_code,
-                    equipment_name,
-                    brand,
-                    purchase_date,
-                    status,
-                    description
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "
+            INSERT INTO equipment (
+                room_id,
+                equipment_type_id,
+                equipment_code,
+                equipment_name,
+                brand,
+                purchase_date,
+                status,
+                description
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ";
 
         $stmt = $this->db->prepare($sql);
 
@@ -120,26 +158,31 @@ class EquipmentModel
             $data['equipment_type_id'],
             $data['equipment_code'],
             $data['equipment_name'],
-            $data['brand'],
+            $data['brand'] ?: null,
             $data['purchase_date'] ?: null,
             $data['status'],
-            $data['description']
+            $data['description'] ?: null
         ]);
     }
 
-    // Cap nhat thiet bi
+    /**
+     * Cập nhật thiết bị.
+     */
     public function update(int $id, array $data): bool
     {
-        $sql = "UPDATE equipment SET
-                    room_id = ?,
-                    equipment_type_id = ?,
-                    equipment_code = ?,
-                    equipment_name = ?,
-                    brand = ?,
-                    purchase_date = ?,
-                    status = ?,
-                    description = ?
-                WHERE equipment_id = ?";
+        $sql = "
+            UPDATE equipment
+            SET
+                room_id = ?,
+                equipment_type_id = ?,
+                equipment_code = ?,
+                equipment_name = ?,
+                brand = ?,
+                purchase_date = ?,
+                status = ?,
+                description = ?
+            WHERE equipment_id = ?
+        ";
 
         $stmt = $this->db->prepare($sql);
 
@@ -148,21 +191,27 @@ class EquipmentModel
             $data['equipment_type_id'],
             $data['equipment_code'],
             $data['equipment_name'],
-            $data['brand'],
+            $data['brand'] ?: null,
             $data['purchase_date'] ?: null,
             $data['status'],
-            $data['description'],
+            $data['description'] ?: null,
             $id
         ]);
     }
 
-    // Xoa thiet bi
+    /**
+     * Xóa thiết bị.
+     * CSDL sẽ từ chối nếu thiết bị đang được bảng khác tham chiếu.
+     */
     public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare(
-            "DELETE FROM equipment WHERE equipment_id = ?"
-        );
+        $stmt = $this->db->prepare("
+            DELETE FROM equipment
+            WHERE equipment_id = ?
+        ");
 
-        return $stmt->execute([$id]);
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
     }
 }

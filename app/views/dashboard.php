@@ -1,3 +1,27 @@
+<?php
+require_once __DIR__ . '/../core/Authorization.php';
+
+$userName = $_SESSION['user']['full_name']
+    ?? $_SESSION['user']['fullname']
+    ?? 'Người dùng';
+
+$isAdmin = Authorization::hasRole('admin');
+$isManager = Authorization::hasAnyRole(['admin', 'manager']);
+$isTeacher = Authorization::hasRole('teacher');
+$isTechnician = Authorization::hasRole('technician');
+
+if ($isAdmin) {
+    $roleLabel = 'Quản trị viên';
+} elseif ($isManager) {
+    $roleLabel = 'Quản lý';
+} elseif ($isTeacher) {
+    $roleLabel = 'Giảng viên';
+} elseif ($isTechnician) {
+    $roleLabel = 'Nhân viên kỹ thuật';
+} else {
+    $roleLabel = 'Người dùng hệ thống';
+}
+?>
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -502,10 +526,6 @@
 
 <body>
 
-<?php
-$userName = $_SESSION['user']['fullname'] ?? 'User';
-?>
-
 <div class="app-layout">
 
     <aside class="sidebar">
@@ -527,26 +547,47 @@ $userName = $_SESSION['user']['fullname'] ?? 'User';
                 </a>
             </li>
 
-            <li>
-                <a href="index.php?action=booking_list">
-                    <span class="menu-icon">▦</span>
-                    Lịch phòng thực hành
-                </a>
-            </li>
+            <?php if ($isManager): ?>
+                <li>
+                    <a href="index.php?action=rooms">
+                        <span class="menu-icon">🏢</span>
+                        Quản lý phòng
+                    </a>
+                </li>
+                <li>
+                    <a href="index.php?action=booking_approvals">
+                        <span class="menu-icon">📋</span>
+                        Duyệt đặt phòng
+                    </a>
+                </li>
+            <?php endif; ?>
 
-            <li>
-                <a href="index.php?action=equipment_list">
-                    <span class="menu-icon">▣</span>
-                    Quản lý thiết bị
-                </a>
-            </li>
+            <?php if ($isTeacher): ?>
+                <li>
+                    <a href="index.php?action=calendar">
+                        <span class="menu-icon">▦</span>
+                        Lịch phòng thực hành
+                    </a>
+                </li>
+            <?php endif; ?>
 
-            <li>
-                <a href="index.php?action=report_list">
-                    <span class="menu-icon">⚙</span>
-                    Báo hỏng & Bảo trì
-                </a>
-            </li>
+            <?php if ($isManager || $isTechnician): ?>
+                <li>
+                    <a href="index.php?action=equipment">
+                        <span class="menu-icon">▣</span>
+                        Quản lý thiết bị
+                    </a>
+                </li>
+            <?php endif; ?>
+
+            <?php if ($isManager || $isTeacher || $isTechnician): ?>
+                <li>
+                    <a href="index.php?action=report_list">
+                        <span class="menu-icon">⚙</span>
+                        Báo hỏng & Bảo trì
+                    </a>
+                </li>
+            <?php endif; ?>
         </ul>
 
         <div class="sidebar-bottom">
@@ -574,7 +615,9 @@ $userName = $_SESSION['user']['fullname'] ?? 'User';
                     <div class="user-name">
                         <?= htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') ?>
                     </div>
-                    <div class="user-role">Người dùng hệ thống</div>
+                    <div class="user-role">
+                        <?= htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
                 </div>
 
                 <a href="index.php?action=logout" class="logout">
@@ -647,41 +690,107 @@ $userName = $_SESSION['user']['fullname'] ?? 'User';
 
             <section class="features-grid">
 
-                <article class="feature-card">
-                    <div class="feature-icon icon-green">📅</div>
-                    <h3>Lịch phòng thực hành</h3>
-                    <p>
-                        Xem lịch sử dụng phòng, kiểm tra lịch trống
-                        và theo dõi các yêu cầu đặt phòng.
-                    </p>
-                    <a href="index.php?action=booking_list" class="feature-link">
-                        Xem chức năng <span>→</span>
-                    </a>
-                </article>
+                <?php if ($isManager): ?>
+                    <article class="feature-card">
+                        <div class="feature-icon icon-green">🏢</div>
+                        <h3>Quản lý phòng</h3>
+                        <p>
+                            Quản lý danh sách phòng thực hành, cập nhật thông tin
+                            và trạng thái hoạt động của phòng.
+                        </p>
+                        <a href="index.php?action=rooms" class="feature-link">
+                            Quản lý phòng <span>→</span>
+                        </a>
+                    </article>
 
-                <article class="feature-card">
-                    <div class="feature-icon icon-blue">🖥️</div>
-                    <h3>Quản lý thiết bị</h3>
-                    <p>
-                        Tra cứu thiết bị, kiểm tra tình trạng hoạt động
-                        và theo dõi thiết bị tại từng phòng.
-                    </p>
-                    <a href="index.php?action=equipment_list" class="feature-link">
-                        Xem chức năng <span>→</span>
-                    </a>
-                </article>
+                    <article class="feature-card">
+                        <div class="feature-icon icon-blue">📋</div>
+                        <h3>Duyệt đặt phòng</h3>
+                        <p>
+                            Kiểm tra yêu cầu đặt phòng, phê duyệt hoặc từ chối
+                            yêu cầu của giảng viên.
+                        </p>
+                        <a href="index.php?action=booking_approvals" class="feature-link">
+                            Duyệt yêu cầu <span>→</span>
+                        </a>
+                    </article>
 
-                <article class="feature-card">
-                    <div class="feature-icon icon-orange">🔧</div>
-                    <h3>Báo hỏng & Bảo trì</h3>
-                    <p>
-                        Gửi báo cáo sự cố, theo dõi tiến độ xử lý
-                        và xem kết quả sửa chữa thiết bị.
-                    </p>
-                    <a href="index.php?action=report_list" class="feature-link">
-                        Quản lý báo hỏng <span>→</span>
-                    </a>
-                </article>
+                    <article class="feature-card">
+                        <div class="feature-icon icon-orange">💻</div>
+                        <h3>Quản lý thiết bị</h3>
+                        <p>
+                            Theo dõi danh mục, tình trạng và thông tin thiết bị
+                            trong các phòng thực hành.
+                        </p>
+                        <a href="index.php?action=equipment" class="feature-link">
+                            Quản lý thiết bị <span>→</span>
+                        </a>
+                    </article>
+                <?php endif; ?>
+
+                <?php if ($isTeacher): ?>
+                    <article class="feature-card">
+                        <div class="feature-icon icon-green">📅</div>
+                        <h3>Lịch phòng thực hành</h3>
+                        <p>
+                            Xem lịch sử dụng phòng, kiểm tra lịch trống
+                            và theo dõi yêu cầu đặt phòng của bạn.
+                        </p>
+                        <a href="index.php?action=calendar" class="feature-link">
+                            Xem lịch phòng <span>→</span>
+                        </a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon icon-blue">➕</div>
+                        <h3>Đặt phòng thực hành</h3>
+                        <p>
+                            Tạo yêu cầu sử dụng phòng phục vụ hoạt động
+                            giảng dạy và thực hành.
+                        </p>
+                        <a href="index.php?action=booking_create" class="feature-link">
+                            Đặt phòng ngay <span>→</span>
+                        </a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon icon-orange">🔧</div>
+                        <h3>Báo hỏng thiết bị</h3>
+                        <p>
+                            Gửi thông tin sự cố thiết bị để bộ phận kỹ thuật
+                            tiếp nhận và xử lý.
+                        </p>
+                        <a href="index.php?action=report_form" class="feature-link">
+                            Tạo phiếu báo hỏng <span>→</span>
+                        </a>
+                    </article>
+                <?php endif; ?>
+
+                <?php if ($isTechnician): ?>
+                    <article class="feature-card">
+                        <div class="feature-icon icon-orange">🛠️</div>
+                        <h3>Xử lý sự cố</h3>
+                        <p>
+                            Theo dõi các phiếu bảo trì được phân công,
+                            cập nhật tiến độ và kết quả xử lý.
+                        </p>
+                        <a href="index.php?action=report_list" class="feature-link">
+                            Xử lý sự cố <span>→</span>
+                        </a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon icon-blue">💻</div>
+                        <h3>Tra cứu thiết bị</h3>
+                        <p>
+                            Kiểm tra thông tin và tình trạng thiết bị
+                            trong hệ thống.
+                        </p>
+                        <a href="index.php?action=equipment" class="feature-link">
+                            Xem thiết bị <span>→</span>
+                        </a>
+                    </article>
+                <?php endif; ?>
 
             </section>
 

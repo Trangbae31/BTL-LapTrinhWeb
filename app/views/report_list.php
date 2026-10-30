@@ -1,3 +1,22 @@
+<?php
+$isManager = $isManager ?? false;
+$isTechnician = $isTechnician ?? false;
+$isTeacher = $isTeacher ?? false;
+$reports = $reports ?? [];
+$technicians = $technicians ?? [];
+
+$statusLabels = [
+    'reported' => 'Chờ xử lý',
+    'processing' => 'Đang xử lý',
+    'resolved' => 'Đã hoàn thành',
+    'cancelled' => 'Đã hủy'
+];
+
+function reportEscape($value): string
+{
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
+?>
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -112,6 +131,7 @@
             font-weight: 700;
             cursor: pointer;
             white-space: nowrap;
+            font-family: inherit;
         }
 
         .btn-primary {
@@ -119,18 +139,28 @@
             color: white;
         }
 
-        .btn-primary:hover {
-            background: var(--green-dark);
-        }
+        .btn-primary:hover { background: var(--green-dark); }
 
         .btn-edit {
             background: #eaf2ff;
             color: #285ca8;
         }
 
-        .btn-edit:hover {
-            background: #d8e7ff;
+        .btn-edit:hover { background: #d8e7ff; }
+
+        .btn-warning {
+            background: #fff1df;
+            color: #a66514;
         }
+
+        .btn-warning:hover { background: #ffe6c5; }
+
+        .btn-success {
+            background: #e5f6eb;
+            color: #247548;
+        }
+
+        .btn-success:hover { background: #d2efdc; }
 
         .summary-card {
             display: flex;
@@ -283,8 +313,46 @@
 
         .action-cell {
             display: flex;
+            flex-direction: column;
+            gap: 9px;
+            align-items: stretch;
+            min-width: 190px;
+        }
+
+        .action-form {
+            display: flex;
+            flex-direction: column;
             gap: 7px;
-            align-items: flex-start;
+            min-width: 180px;
+        }
+
+        .action-form select,
+        .action-form textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 9px;
+            font-family: inherit;
+            font-size: 12px;
+            color: var(--text);
+            background: white;
+        }
+
+        .action-form textarea {
+            min-height: 58px;
+            resize: vertical;
+        }
+
+        .action-form select:focus,
+        .action-form textarea:focus {
+            outline: 2px solid var(--green-light);
+            border-color: var(--green);
+        }
+
+        .assigned-info {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 4px;
         }
 
         .empty-state {
@@ -310,6 +378,17 @@
             padding: 25px 10px;
             color: #929d96;
             font-size: 11px;
+        }
+
+        .role-note {
+            margin: 0 0 18px;
+            padding: 13px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            color: #65766b;
+            font-size: 12px;
+            line-height: 1.6;
         }
 
         @media (max-width: 700px) {
@@ -358,17 +437,37 @@
             </p>
         </div>
 
-        <a href="index.php?action=report_form" class="btn btn-primary">
-            <span>＋</span> Tạo phiếu báo hỏng
-        </a>
+        <?php if ($isTeacher || (!$isManager && !$isTechnician)): ?>
+            <a href="index.php?action=report_form" class="btn btn-primary">
+                <span>＋</span> Tạo phiếu báo hỏng
+            </a>
+        <?php endif; ?>
     </section>
+
+    <?php if ($isManager): ?>
+        <div class="role-note">
+            <strong>Quyền quản lý:</strong>
+            Bạn có thể xem tất cả phiếu báo hỏng và phân công kỹ thuật viên xử lý.
+        </div>
+    <?php elseif ($isTechnician): ?>
+        <div class="role-note">
+            <strong>Quyền kỹ thuật:</strong>
+            Bạn chỉ có thể cập nhật trạng thái và ghi chú xử lý đối với phiếu được phân công cho mình.
+            Bạn không thể thay đổi người báo, thiết bị, tiêu đề hoặc mô tả sự cố.
+        </div>
+    <?php elseif ($isTeacher): ?>
+        <div class="role-note">
+            <strong>Quyền giảng viên:</strong>
+            Bạn có thể tạo phiếu báo hỏng và theo dõi tình trạng xử lý.
+        </div>
+    <?php endif; ?>
 
     <section class="summary-card">
         <div class="summary-icon">📋</div>
         <div>
             <div class="summary-title">Tổng số phiếu đang hiển thị</div>
             <div class="summary-number">
-                <?= is_countable($reports ?? []) ? count($reports ?? []) : 0 ?>
+                <?= count($reports) ?>
                 <span style="font-size:12px;font-weight:400;color:#78867e">
                     phiếu báo hỏng
                 </span>
@@ -394,6 +493,7 @@
                         <th>Tiêu đề</th>
                         <th>Mô tả</th>
                         <th>Người báo</th>
+                        <th>Người được giao</th>
                         <th>Trạng thái</th>
                         <th>Thời gian</th>
                         <th>Lịch sử</th>
@@ -404,7 +504,7 @@
                 <tbody>
                     <?php if (empty($reports)): ?>
                         <tr>
-                            <td colspan="10">
+                            <td colspan="11">
                                 <div class="empty-state">
                                     <div class="empty-icon">📭</div>
                                     <strong>Chưa có phiếu báo hỏng</strong>
@@ -413,19 +513,14 @@
                             </td>
                         </tr>
                     <?php else: ?>
+
                         <?php foreach ($reports as $report): ?>
                             <?php
                                 $reportId = (int)($report['report_id'] ?? 0);
                                 $status = (string)($report['status'] ?? '');
-
-                                $statusLabels = [
-                                    'reported' => 'Chờ xử lý',
-                                    'processing' => 'Đang xử lý',
-                                    'resolved' => 'Đã hoàn thành',
-                                    'cancelled' => 'Đã hủy'
-                                ];
-
                                 $statusLabel = $statusLabels[$status] ?? $status;
+                                $assignedName = $report['technician_name'] ?? '';
+                                $assignedId = (int)($report['assigned_to'] ?? 0);
                             ?>
 
                             <tr>
@@ -434,55 +529,41 @@
                                 </td>
 
                                 <td>
-                                    <?= htmlspecialchars(
-                                        (string)($report['equipment_code'] ?? ''),
-                                        ENT_QUOTES, 'UTF-8'
-                                    ) ?>
+                                    <?= reportEscape($report['equipment_code'] ?? '') ?>
                                 </td>
 
                                 <td class="equipment-name">
-                                    <?= htmlspecialchars(
-                                        (string)($report['equipment_name'] ?? ''),
-                                        ENT_QUOTES, 'UTF-8'
-                                    ) ?>
+                                    <?= reportEscape($report['equipment_name'] ?? '') ?>
                                 </td>
 
                                 <td>
-                                    <?= htmlspecialchars(
-                                        (string)($report['title'] ?? ''),
-                                        ENT_QUOTES, 'UTF-8'
-                                    ) ?>
+                                    <?= reportEscape($report['title'] ?? '') ?>
                                 </td>
 
                                 <td class="description">
-                                    <?= htmlspecialchars(
-                                        (string)($report['description'] ?? ''),
-                                        ENT_QUOTES, 'UTF-8'
-                                    ) ?>
+                                    <?= reportEscape($report['description'] ?? '') ?>
                                 </td>
 
                                 <td>
-                                    <?= htmlspecialchars(
-                                        (string)($report['reporter_name'] ?? 'Không rõ'),
-                                        ENT_QUOTES, 'UTF-8'
-                                    ) ?>
+                                    <?= reportEscape($report['reporter_name'] ?? 'Không rõ') ?>
                                 </td>
 
                                 <td>
-                                    <span class="status <?= htmlspecialchars(
-                                        $status, ENT_QUOTES, 'UTF-8'
-                                    ) ?>">
-                                        <?= htmlspecialchars(
-                                            $statusLabel, ENT_QUOTES, 'UTF-8'
-                                        ) ?>
+                                    <?php if ($assignedName !== ''): ?>
+                                        <?= reportEscape($assignedName) ?>
+                                    <?php else: ?>
+                                        <span style="color:#a66514">Chưa phân công</span>
+                                    <?php endif; ?>
+                                </td>
+
+                                <td>
+                                    <span class="status <?= reportEscape($status) ?>">
+                                        <?= reportEscape($statusLabel) ?>
                                     </span>
                                 </td>
 
                                 <td>
-                                    <?= htmlspecialchars(
-                                        (string)($report['reported_at'] ?? ''),
-                                        ENT_QUOTES, 'UTF-8'
-                                    ) ?>
+                                    <?= reportEscape($report['reported_at'] ?? '') ?>
                                 </td>
 
                                 <td>
@@ -494,14 +575,83 @@
 
                                 <td>
                                     <div class="action-cell">
-                                        <a class="btn btn-edit"
-                                           href="index.php?action=report_edit&amp;id=<?= $reportId ?>">
-                                            ✏️ Sửa
-                                        </a>
+
+                                        <?php if ($isManager && !in_array($status, ['resolved', 'cancelled'], true)): ?>
+
+                                            <form class="action-form"
+                                                  method="POST"
+                                                  action="index.php?action=report_assign">
+
+                                                <input type="hidden"
+                                                       name="report_id"
+                                                       value="<?= $reportId ?>">
+
+                                                <select name="technician_id" required>
+                                                    <option value="">-- Chọn kỹ thuật viên --</option>
+
+                                                    <?php foreach ($technicians as $technician): ?>
+                                                        <option
+                                                            value="<?= (int)$technician['user_id'] ?>"
+                                                            <?= $assignedId === (int)$technician['user_id'] ? 'selected' : '' ?>>
+                                                            <?= reportEscape($technician['full_name']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+
+                                                <button type="submit" class="btn btn-primary">
+                                                    Phân công
+                                                </button>
+                                            </form>
+
+                                        <?php elseif ($isTechnician && $assignedId === (int)($_SESSION['user']['user_id'] ?? $_SESSION['user']['id'] ?? 0) && !in_array($status, ['resolved', 'cancelled'], true)): ?>
+
+                                            <form class="action-form"
+                                                  method="POST"
+                                                  action="index.php?action=report_update">
+
+                                                <input type="hidden"
+                                                       name="report_id"
+                                                       value="<?= $reportId ?>">
+
+                                                <?php if ($status === 'reported'): ?>
+                                                    <button type="submit"
+                                                            name="status"
+                                                            value="processing"
+                                                            class="btn btn-edit">
+                                                        Bắt đầu xử lý
+                                                    </button>
+                                                <?php endif; ?>
+
+                                                <textarea name="resolution_note"
+                                                          placeholder="Ghi chú quá trình xử lý..."></textarea>
+
+                                                <button type="submit"
+                                                        name="status"
+                                                        value="resolved"
+                                                        class="btn btn-success">
+                                                    Hoàn thành
+                                                </button>
+                                            </form>
+
+                                        <?php elseif ($isTechnician && $assignedId !== (int)($_SESSION['user']['user_id'] ?? $_SESSION['user']['id'] ?? 0)): ?>
+
+                                            <span class="assigned-info">
+                                                Không thuộc phiếu được giao cho bạn.
+                                            </span>
+
+                                        <?php else: ?>
+
+                                            <span class="assigned-info">
+                                                Không có thao tác.
+                                            </span>
+
+                                        <?php endif; ?>
+
                                     </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
+
                     <?php endif; ?>
                 </tbody>
             </table>

@@ -11,48 +11,79 @@ class RoomModel
         $this->db = Database::connect();
     }
 
-    // Lay danh sach phong va ten toa nha
+    /**
+     * Lấy danh sách phòng và tên tòa nhà.
+     */
     public function getAll(): array
     {
-        $sql = "SELECT r.*, b.building_name
-                FROM rooms r
-                LEFT JOIN buildings b
-                    ON r.building_id = b.building_id
-                ORDER BY r.room_id DESC";
+        $sql = "
+            SELECT
+                r.*,
+                b.building_name
+            FROM rooms r
+            LEFT JOIN buildings b
+                ON r.building_id = b.building_id
+            ORDER BY r.room_id DESC
+        ";
 
-        return $this->db->query($sql)->fetchAll();
+        return $this->db
+            ->query($sql)
+            ->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Lay thong tin mot phong theo ID
+    /**
+     * Lấy thông tin một phòng theo ID.
+     */
     public function getById(int $id): ?array
     {
-        $stmt = $this->db->prepare(
-            "SELECT * FROM rooms WHERE room_id = ?"
-        );
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM rooms
+            WHERE room_id = ?
+        ");
 
         $stmt->execute([$id]);
-        $room = $stmt->fetch();
+
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $room ?: null;
     }
 
-    // Lay danh sach toa nha cho form
+    /**
+     * Lấy danh sách tòa nhà cho biểu mẫu.
+     */
     public function getBuildings(): array
     {
-        $sql = "SELECT building_id, building_name
-                FROM buildings
-                ORDER BY building_name";
+        $sql = "
+            SELECT
+                building_id,
+                building_name
+            FROM buildings
+            ORDER BY building_name
+        ";
 
-        return $this->db->query($sql)->fetchAll();
+        return $this->db
+            ->query($sql)
+            ->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Them phong moi
+    /**
+     * Thêm phòng mới.
+     */
     public function create(array $data): bool
     {
-        $sql = "INSERT INTO rooms
-                (building_id, room_code, room_name, capacity,
-                 location, description, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $sql = "
+            INSERT INTO rooms (
+                building_id,
+                room_code,
+                room_name,
+                capacity,
+                location,
+                description,
+                status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ";
 
         $stmt = $this->db->prepare($sql);
 
@@ -61,24 +92,29 @@ class RoomModel
             $data['room_code'],
             $data['room_name'],
             $data['capacity'],
-            $data['location'],
-            $data['description'],
+            $data['location'] ?: null,
+            $data['description'] ?: null,
             $data['status']
         ]);
     }
 
-    // Cap nhat thong tin phong
+    /**
+     * Cập nhật thông tin phòng.
+     */
     public function update(int $id, array $data): bool
     {
-        $sql = "UPDATE rooms SET
-                    building_id = ?,
-                    room_code = ?,
-                    room_name = ?,
-                    capacity = ?,
-                    location = ?,
-                    description = ?,
-                    status = ?
-                WHERE room_id = ?";
+        $sql = "
+            UPDATE rooms
+            SET
+                building_id = ?,
+                room_code = ?,
+                room_name = ?,
+                capacity = ?,
+                location = ?,
+                description = ?,
+                status = ?
+            WHERE room_id = ?
+        ";
 
         $stmt = $this->db->prepare($sql);
 
@@ -87,37 +123,51 @@ class RoomModel
             $data['room_code'],
             $data['room_name'],
             $data['capacity'],
-            $data['location'],
-            $data['description'],
+            $data['location'] ?: null,
+            $data['description'] ?: null,
             $data['status'],
             $id
         ]);
     }
 
-    // Xoa phong
+    /**
+     * Xóa phòng.
+     * Nếu phòng đang được thiết bị hoặc lịch đặt tham chiếu,
+     * khóa ngoại sẽ ngăn việc xóa.
+     */
     public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare(
-            "DELETE FROM rooms WHERE room_id = ?"
-        );
+        $stmt = $this->db->prepare("
+            DELETE FROM rooms
+            WHERE room_id = ?
+        ");
 
-        return $stmt->execute([$id]);
+        $stmt->execute([$id]);
+
+        return $stmt->rowCount() > 0;
     }
 
-    // Tim kiem phong theo ma, ten phong hoac vi tri
+    /**
+     * Tìm kiếm phòng theo mã, tên, vị trí hoặc tòa nhà.
+     */
     public function search(string $keyword): array
     {
-        $sql = "SELECT r.*, b.building_name
-                FROM rooms r
-                LEFT JOIN buildings b
-                    ON r.building_id = b.building_id
-                WHERE r.room_code LIKE ?
-                   OR r.room_name LIKE ?
-                   OR r.location LIKE ?
-                   OR b.building_name LIKE ?
-                ORDER BY r.room_id DESC";
+        $sql = "
+            SELECT
+                r.*,
+                b.building_name
+            FROM rooms r
+            LEFT JOIN buildings b
+                ON r.building_id = b.building_id
+            WHERE r.room_code LIKE ?
+               OR r.room_name LIKE ?
+               OR r.location LIKE ?
+               OR b.building_name LIKE ?
+            ORDER BY r.room_id DESC
+        ";
 
         $stmt = $this->db->prepare($sql);
+
         $pattern = '%' . $keyword . '%';
 
         $stmt->execute([
@@ -127,6 +177,6 @@ class RoomModel
             $pattern
         ]);
 
-        return $stmt->fetchAll();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

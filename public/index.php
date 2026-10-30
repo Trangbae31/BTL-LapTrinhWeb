@@ -1,31 +1,51 @@
-
 <?php
 
 require_once __DIR__ . '/../config/database.php';
 
-// Khoi tao ket noi database
 $pdo = Database::connect();
 
-// Khoi tao session neu chua co
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Core
+require_once __DIR__ . '/../app/core/Authorization.php';
+
+// Controllers
 require_once __DIR__ . '/../app/controllers/AuthController.php';
+require_once __DIR__ . '/../app/controllers/DashboardController.php';
 require_once __DIR__ . '/../app/controllers/RoomController.php';
 require_once __DIR__ . '/../app/controllers/EquipmentController.php';
 require_once __DIR__ . '/../app/controllers/ReportController.php';
 require_once __DIR__ . '/../app/controllers/BookingController.php';
+require_once __DIR__ . '/../app/controllers/BookingApprovalController.php';
 
-// Lay action tu URL
 $action = $_GET['action'] ?? 'login';
 
-// Khoi tao controller dang nhap
 $authController = new AuthController();
+
+function requireLoginForRoute(): void
+{
+    if (!isset($_SESSION['user']['user_id'])) {
+        header('Location: index.php?action=login');
+        exit();
+    }
+}
+
+function requirePostRequest(): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        exit('Phương thức yêu cầu không hợp lệ.');
+    }
+}
 
 switch ($action) {
 
-    // DANG NHAP / DANG XUAT
+    // ==========================================
+    // ĐĂNG NHẬP / ĐĂNG XUẤT
+    // ==========================================
+
     case 'login':
         $authController->login();
         break;
@@ -34,210 +54,175 @@ switch ($action) {
         $authController->logout();
         break;
 
-    // TRANG CHU
-    case 'dashboard':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
 
-        require_once __DIR__ . '/../app/views/dashboard.php';
+    // ==========================================
+    // DASHBOARD
+    // ==========================================
+
+    case 'dashboard':
+        requireLoginForRoute();
+        (new DashboardController())->index();
         break;
 
-    // QUAN LY PHONG
-    case 'rooms':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
 
+    // ==========================================
+    // QUẢN LÝ PHÒNG
+    // ==========================================
+
+    case 'rooms':
+        requireLoginForRoute();
         (new RoomController())->index();
         break;
 
     case 'room_form':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
         (new RoomController())->form();
         break;
 
     case 'room_delete':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
+        requirePostRequest();
         (new RoomController())->delete();
         break;
 
-    // QUAN LY THIET BI
-    case 'equipment':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
 
+    // ==========================================
+    // QUẢN LÝ THIẾT BỊ
+    // ==========================================
+
+    case 'equipment':
+        requireLoginForRoute();
         (new EquipmentController())->index();
         break;
 
     case 'equipment_form':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
         (new EquipmentController())->form();
         break;
 
     case 'equipment_delete':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
+        requirePostRequest();
         (new EquipmentController())->delete();
         break;
 
-    // QUAN LY LICH PHONG VA BOOKING
-    case 'calendar':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
 
+    // ==========================================
+    // LỊCH PHÒNG VÀ ĐẶT PHÒNG
+    // ==========================================
+
+    case 'calendar':
+        requireLoginForRoute();
         (new BookingController())->calendar();
         break;
 
     case 'booking_create':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
         (new BookingController())->create();
         break;
 
-    // Sửa yêu cầu đặt phòng
-    case 'booking_edit':
-        (new BookingController())->edit();
-        break;
-
-    // Cập nhật yêu cầu đặt phòng
-    case 'booking_update':
-        (new BookingController())->update();
-        break;
-
-    // Hủy yêu cầu đặt phòng
-    case 'booking_cancel':
-        (new BookingController())->cancel();
-        break;
-
-    // Xu ly gui yeu cau dat phong
     case 'booking_store':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=booking_create');
-            exit();
-        }
-
+        requireLoginForRoute();
+        requirePostRequest();
         (new BookingController())->store();
         break;
 
-    // QUAN LY BAO HONG VA BAO TRI
+    case 'booking_edit':
+        requireLoginForRoute();
+        (new BookingController())->edit();
+        break;
+
+    case 'booking_update':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingController())->update();
+        break;
+
+    case 'booking_cancel':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingController())->cancel();
+        break;
+
+
+    // ==========================================
+    // DUYỆT YÊU CẦU ĐẶT PHÒNG
+    // ==========================================
+
+    case 'booking_approvals':
+        requireLoginForRoute();
+        (new BookingApprovalController())->index();
+        break;
+
+    case 'booking_approve':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingApprovalController())->approve();
+        break;
+
+    case 'booking_reject':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingApprovalController())->reject();
+        break;
+
+
+    // ==========================================
+    // QUẢN LÝ BÁO HỎNG VÀ BẢO TRÌ
+    // ==========================================
+
     case 'reports':
     case 'report_list':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
         (new ReportController())->index();
         break;
 
-    // HIEN THI FORM TAO PHIEU
     case 'report_form':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
         (new ReportController())->create();
         break;
 
-    // LUU PHIEU MOI
     case 'report_store':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=report_form');
-            exit();
-        }
-
+        requireLoginForRoute();
+        requirePostRequest();
         (new ReportController())->store();
         break;
 
-    // HIEN THI FORM SUA PHIEU
     case 'report_edit':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
+        requireLoginForRoute();
         (new ReportController())->edit();
         break;
 
-    // LUU THAY DOI THONG TIN PHIEU
     case 'report_update_info':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=report_list');
-            exit();
-        }
-
+        requireLoginForRoute();
+        requirePostRequest();
         (new ReportController())->update();
         break;
 
-    // XEM LICH SU BAO HONG
-    case 'report_history':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
+    case 'report_assign':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new ReportController())->assign();
+        break;
 
+    case 'report_history':
+        requireLoginForRoute();
         (new ReportController())->history();
         break;
 
-    // CAP NHAT TRANG THAI BAO HONG
     case 'report_update':
-        if (!isset($_SESSION['user'])) {
-            header('Location: index.php?action=login');
-            exit();
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: index.php?action=report_list');
-            exit();
-        }
-
+        requireLoginForRoute();
+        requirePostRequest();
         (new ReportController())->updateStatus();
         break;
 
-    // ACTION KHONG TON TAI
+
+    // ==========================================
+    // KHÔNG TÌM THẤY ACTION
+    // ==========================================
+
     default:
         http_response_code(404);
-        echo 'Khong tim thay chuc nang nay.';
+        echo 'Không tìm thấy chức năng này.';
         break;
 }
