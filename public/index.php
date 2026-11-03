@@ -1,3 +1,4 @@
+
 <?php
 
 require_once __DIR__ . '/../config/database.php';
@@ -25,6 +26,10 @@ $action = $_GET['action'] ?? 'login';
 
 $authController = new AuthController();
 
+// ==========================================
+// KIỂM TRA ĐĂNG NHẬP
+// ==========================================
+
 function requireLoginForRoute(): void
 {
     if (!isset($_SESSION['user']['user_id'])) {
@@ -32,6 +37,10 @@ function requireLoginForRoute(): void
         exit();
     }
 }
+
+// ==========================================
+// KIỂM TRA PHƯƠNG THỨC POST
+// ==========================================
 
 function requirePostRequest(): void
 {
@@ -98,8 +107,8 @@ switch ($action) {
 
     case 'equipment_api':
         requireLoginForRoute();
-    (new EquipmentApiController())->index();
-    break;
+        (new EquipmentApiController())->index();
+        break;
 
     case 'equipment_form':
         requireLoginForRoute();
@@ -183,43 +192,57 @@ switch ($action) {
         (new ReportController())->index();
         break;
 
+    // Hiển thị form tạo báo hỏng
     case 'report_form':
         requireLoginForRoute();
         (new ReportController())->create();
         break;
 
+    // Lưu báo hỏng mới
     case 'report_store':
         requireLoginForRoute();
         requirePostRequest();
         (new ReportController())->store();
         break;
 
+    // Hiển thị form chỉnh sửa báo hỏng
     case 'report_edit':
         requireLoginForRoute();
         (new ReportController())->edit();
         break;
 
+    // Lưu thông tin chỉnh sửa báo hỏng
     case 'report_update_info':
         requireLoginForRoute();
         requirePostRequest();
         (new ReportController())->update();
         break;
 
+    // Phân công kỹ thuật viên
     case 'report_assign':
         requireLoginForRoute();
         requirePostRequest();
         (new ReportController())->assign();
         break;
 
+    // Xem lịch sử xử lý báo hỏng
     case 'report_history':
         requireLoginForRoute();
         (new ReportController())->history();
         break;
 
+    // Cập nhật trạng thái và kết quả xử lý
     case 'report_update':
         requireLoginForRoute();
         requirePostRequest();
         (new ReportController())->updateStatus();
+        break;
+
+    // Xóa báo hỏng
+    case 'report_delete':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new ReportController())->delete();
         break;
 
 
