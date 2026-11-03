@@ -1,0 +1,10 @@
+ app/controllers/EquipmentController.php  |  47 [32m+++++[m[31m----[m
+ app/controllers/RoomController.php       |  48 [32m++++++[m[31m---[m
+ app/models/EquipmentModel.php            | 104 [32m++++++++++++++[m[31m-----[m
+ app/models/RoomModel.php                 |  70 [32m+++++++++[m[31m----[m
+ app/views/equipment_form.php             |  59 [32m+++++++[m[31m----[m
+ app/views/equipment_list.php             |  81 [32m++++++++++++[m[31m---[m
+ app/views/room_form.php                  | 148 [32m+++++++++++++++++++[m[31m-------[m
+ app/views/room_list.php                  | 173 [32m++++++++++++++++++++++++++[m[31m-----[m
+ database/drafts/thao_rooms_equipment.sql | 134 [32m+++++++++++++[m[31m-----------[m
+ 9 files changed, 618 insertions(+), 246 deletions(-)

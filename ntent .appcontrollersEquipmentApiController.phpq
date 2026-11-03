@@ -1,0 +1,24 @@
+[1mdiff --git a/public/index.php b/public/index.php[m
+[1mindex 90789a7..66e95a7 100644[m
+[1m--- a/public/index.php[m
+[1m+++ b/public/index.php[m
+[36m@@ -16,6 +16,7 @@[m [mrequire_once __DIR__ . '/../app/controllers/AuthController.php';[m
+ require_once __DIR__ . '/../app/controllers/DashboardController.php';[m
+ require_once __DIR__ . '/../app/controllers/RoomController.php';[m
+ require_once __DIR__ . '/../app/controllers/EquipmentController.php';[m
+[32m+[m[32mrequire_once __DIR__ . '/../app/controllers/EquipmentApiController.php';[m
+ require_once __DIR__ . '/../app/controllers/ReportController.php';[m
+ require_once __DIR__ . '/../app/controllers/BookingController.php';[m
+ require_once __DIR__ . '/../app/controllers/BookingApprovalController.php';[m
+[36m@@ -95,6 +96,11 @@[m [mswitch ($action) {[m
+         (new EquipmentController())->index();[m
+         break;[m
+ [m
+[32m+[m[32m    case 'equipment_api':[m
+[32m+[m[32m        requireLoginForRoute();[m
+[32m+[m[32m    (new EquipmentApiController())->index();[m
+[32m+[m[32m    break;[m
+[32m+[m
+     case 'equipment_form':[m
+         requireLoginForRoute();[m
+         (new EquipmentController())->form();[m

@@ -257,7 +257,20 @@ CREATE TABLE IF NOT EXISTS maintenance_history (
         ON UPDATE CASCADE ON DELETE SET NULL,
     INDEX idx_maintenance_history_report (report_id)
 ) ENGINE=InnoDB;
+SHOW DATABASES;
 
+DESCRIBE equipment;
+DESCRIBE equipment_types;
+DESCRIBE rooms;
+
+USE ql_phong_thuc_hanh;
+SHOW TABLES;
+USE ql_phong_thuc_hanh;
+
+SELECT COUNT(*) AS so_phong FROM rooms;
+SELECT COUNT(*) AS so_thiet_bi FROM equipment;
+SELECT COUNT(*) AS so_toa_nha FROM buildings;
+SELECT COUNT(*) AS so_loai_thiet_bi FROM equipment_types;
 
 -- Kiem tra sau khi tao bang (co the chay rieng):
 -- SHOW TABLES;
