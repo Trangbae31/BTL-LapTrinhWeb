@@ -16,6 +16,7 @@ require_once __DIR__ . '/../app/controllers/AuthController.php';
 require_once __DIR__ . '/../app/controllers/DashboardController.php';
 require_once __DIR__ . '/../app/controllers/RoomController.php';
 require_once __DIR__ . '/../app/controllers/EquipmentController.php';
+require_once __DIR__ . '/../app/controllers/EquipmentApiController.php';
 require_once __DIR__ . '/../app/controllers/ReportController.php';
 require_once __DIR__ . '/../app/controllers/BookingController.php';
 require_once __DIR__ . '/../app/controllers/BookingApprovalController.php';
@@ -94,6 +95,11 @@ switch ($action) {
         requireLoginForRoute();
         (new EquipmentController())->index();
         break;
+
+    case 'equipment_api':
+        requireLoginForRoute();
+    (new EquipmentApiController())->index();
+    break;
 
     case 'equipment_form':
         requireLoginForRoute();
