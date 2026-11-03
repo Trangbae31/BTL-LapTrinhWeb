@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../core/Authorization.php';
+require_once __DIR__ . '/../core/CSRF.php';
 
 class RoomController
 {
@@ -59,6 +60,9 @@ class RoomController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Kiểm tra CSRF trước khi xử lý dữ liệu.
+            CSRF::verifyOrFail();
+
             $buildingId = (int)($_POST['building_id'] ?? 0);
 
             $data = [
@@ -117,6 +121,9 @@ class RoomController
             http_response_code(405);
             exit('Phương thức yêu cầu không hợp lệ.');
         }
+
+        // Kiểm tra CSRF trước khi xóa.
+        CSRF::verifyOrFail();
 
         $id = (int)($_POST['id'] ?? 0);
 

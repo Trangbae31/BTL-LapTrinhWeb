@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../core/CSRF.php';
+
 function roomEscape($value): string
 {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
@@ -283,6 +285,8 @@ unset($_SESSION['flash']);
                                     action="index.php?action=room_delete"
                                     onsubmit="return confirm('Bạn có chắc muốn xóa phòng này?')"
                                 >
+
+                                    <?= CSRF::field() ?>
 
                                     <input
                                         type="hidden"

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../core/CSRF.php';
 
 function equipmentEscape($value): string
 {
@@ -16,8 +17,8 @@ $canManage = $canManage ?? false;
 
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
-
 ?>
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -272,7 +273,6 @@ th {
                         <?php if ($canManage): ?>
 
                             <td>
-
                                 <div class="actions">
 
                                     <a href="index.php?action=equipment_form&id=<?= (int)$item['equipment_id'] ?>">
@@ -291,6 +291,8 @@ th {
                                             value="<?= (int)$item['equipment_id'] ?>"
                                         >
 
+                                        <?= CSRF::field() ?>
+
                                         <button class="delete" type="submit">
                                             Xóa
                                         </button>
@@ -298,7 +300,6 @@ th {
                                     </form>
 
                                 </div>
-
                             </td>
 
                         <?php endif; ?>

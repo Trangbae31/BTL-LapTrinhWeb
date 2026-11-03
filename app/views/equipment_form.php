@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../core/CSRF.php';
 
 function equipmentFormEscape($value): string
 {
@@ -15,7 +16,6 @@ $statusOptions = [
 ];
 
 $currentStatus = $equipment['status'] ?? 'available';
-
 ?>
 
 <!DOCTYPE html>
@@ -156,6 +156,8 @@ $currentStatus = $equipment['status'] ?? 'available';
         action="index.php?action=equipment_form<?= $isEdit ? '&id=' . (int)$equipment['equipment_id'] : '' ?>"
     >
 
+        <?= CSRF::field() ?>
+
         <label for="equipment_code">Mã thiết bị</label>
 
         <input
@@ -188,7 +190,6 @@ $currentStatus = $equipment['status'] ?? 'available';
             <option value="">-- Chọn loại thiết bị --</option>
 
             <?php foreach ($types as $type): ?>
-
                 <option
                     value="<?= (int)$type['equipment_type_id'] ?>"
                     <?= (string)($equipment['equipment_type_id'] ?? '') ===
@@ -196,9 +197,7 @@ $currentStatus = $equipment['status'] ?? 'available';
                 >
                     <?= equipmentFormEscape($type['type_name']) ?>
                 </option>
-
             <?php endforeach; ?>
-
         </select>
 
         <label for="room_id">Phòng</label>
@@ -211,7 +210,6 @@ $currentStatus = $equipment['status'] ?? 'available';
             <option value="">-- Chọn phòng --</option>
 
             <?php foreach ($rooms as $room): ?>
-
                 <option
                     value="<?= (int)$room['room_id'] ?>"
                     <?= (string)($equipment['room_id'] ?? '') ===
@@ -221,9 +219,7 @@ $currentStatus = $equipment['status'] ?? 'available';
                         $room['room_code'] . ' - ' . $room['room_name']
                     ) ?>
                 </option>
-
             <?php endforeach; ?>
-
         </select>
 
         <label for="brand">Hãng sản xuất</label>
@@ -248,18 +244,14 @@ $currentStatus = $equipment['status'] ?? 'available';
         <label for="status">Trạng thái</label>
 
         <select id="status" name="status">
-
             <?php foreach ($statusOptions as $value => $label): ?>
-
                 <option
                     value="<?= equipmentFormEscape($value) ?>"
                     <?= $currentStatus === $value ? 'selected' : '' ?>
                 >
                     <?= equipmentFormEscape($label) ?>
                 </option>
-
             <?php endforeach; ?>
-
         </select>
 
         <label for="description">Mô tả</label>

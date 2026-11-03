@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../core/CSRF.php';
+
 function roomFormEscape($value): string
 {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
@@ -147,14 +149,14 @@ $roomId = (int)($room['room_id'] ?? $_GET['id'] ?? 0);
         action="index.php?action=room_form<?= $isEdit ? '&id=' . $roomId : '' ?>"
     >
 
+        <?= CSRF::field() ?>
+
         <label for="building_id">Tòa nhà</label>
 
         <select id="building_id" name="building_id">
-
             <option value="">-- Không chọn tòa nhà --</option>
 
             <?php foreach ($buildings as $building): ?>
-
                 <option
                     value="<?= (int)$building['building_id'] ?>"
                     <?= (string)($room['building_id'] ?? '') ===
@@ -162,9 +164,7 @@ $roomId = (int)($room['room_id'] ?? $_GET['id'] ?? 0);
                 >
                     <?= roomFormEscape($building['building_name']) ?>
                 </option>
-
             <?php endforeach; ?>
-
         </select>
 
         <label for="room_code">Mã phòng</label>
@@ -216,7 +216,6 @@ $roomId = (int)($room['room_id'] ?? $_GET['id'] ?? 0);
         <label for="status">Trạng thái</label>
 
         <select id="status" name="status">
-
             <option
                 value="active"
                 <?= ($room['status'] ?? 'active') === 'active' ? 'selected' : '' ?>
@@ -230,7 +229,6 @@ $roomId = (int)($room['room_id'] ?? $_GET['id'] ?? 0);
             >
                 Ngừng hoạt động
             </option>
-
         </select>
 
         <label for="description">Mô tả</label>
@@ -243,7 +241,6 @@ $roomId = (int)($room['room_id'] ?? $_GET['id'] ?? 0);
         ><?= roomFormEscape($room['description'] ?? '') ?></textarea>
 
         <div class="buttons">
-
             <button type="submit">
                 <?= $isEdit ? 'Cập nhật phòng' : 'Lưu phòng' ?>
             </button>
@@ -254,7 +251,6 @@ $roomId = (int)($room['room_id'] ?? $_GET['id'] ?? 0);
             >
                 Quay lại
             </a>
-
         </div>
 
     </form>
