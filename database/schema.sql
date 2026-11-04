@@ -123,39 +123,112 @@ CREATE TABLE IF NOT EXISTS equipment (
 -- =====================================================
 -- 8. BOOKINGS: YEU CAU DAT PHONG
 -- =====================================================
+-- =====================================================
+-- 8. BOOKINGS: YEU CAU DAT PHONG
+-- =====================================================
 CREATE TABLE IF NOT EXISTS bookings (
     booking_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    user_id INT UNSIGNED NOT NULL,
+
+    user_id INT UNSIGNED NULL,
+    created_by_user_id INT UNSIGNED NULL,
+
+    booking_type ENUM(
+        'personal',
+        'on_behalf',
+        'school_wide'
+    ) NOT NULL DEFAULT 'personal',
+
     room_id INT UNSIGNED NOT NULL,
     title VARCHAR(200) NOT NULL,
     purpose TEXT,
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
+
     status ENUM(
         'pending',
         'approved',
         'rejected',
         'cancelled'
     ) NOT NULL DEFAULT 'pending',
+
     note TEXT,
+
+    cancelled_by_user_id INT UNSIGNED NULL,
+    cancelled_at DATETIME NULL,
+    cancellation_reason TEXT NULL,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
+
     CONSTRAINT fk_bookings_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
     CONSTRAINT fk_bookings_room
         FOREIGN KEY (room_id) REFERENCES rooms(room_id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
+
+    CONSTRAINT fk_bookings_creator
+        FOREIGN KEY (created_by_user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+
+    CONSTRAINT fk_bookings_cancelled_by
+        FOREIGN KEY (cancelled_by_user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE SET NULL,
+
     CONSTRAINT chk_bookings_time
         CHECK (start_time < end_time),
+
     INDEX idx_bookings_user (user_id),
     INDEX idx_bookings_room_time (room_id, start_time, end_time),
-    INDEX idx_bookings_status (status)
+    INDEX idx_bookings_status (status),
+    INDEX idx_bookings_creator (created_by_user_id),
+    INDEX idx_bookings_type (booking_type)
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 9. BOOKING_APPROVALS: LICH SU DUYET DAT PHONG
+-- 9. BOOKING_CANCELLATION_REQUESTS
+-- YEU CAU HUY DAT PHONG
+-- =====================================================
+CREATE TABLE IF NOT EXISTS booking_cancellation_requests (
+    request_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT UNSIGNED NOT NULL,
+    requester_id INT UNSIGNED NOT NULL,
+
+    reason TEXT NOT NULL,
+
+    status ENUM(
+        'pending',
+        'approved',
+        'rejected'
+    ) NOT NULL DEFAULT 'pending',
+
+    processed_by INT UNSIGNED NULL,
+    processing_comment TEXT NULL,
+
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME NULL,
+
+    CONSTRAINT fk_cancel_request_booking
+        FOREIGN KEY (booking_id) REFERENCES bookings(booking_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+
+    CONSTRAINT fk_cancel_request_requester
+        FOREIGN KEY (requester_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+
+    CONSTRAINT fk_cancel_request_processor
+        FOREIGN KEY (processed_by) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE SET NULL,
+
+    INDEX idx_cancel_request_booking (booking_id),
+    INDEX idx_cancel_request_requester (requester_id),
+    INDEX idx_cancel_request_status (status)
+) ENGINE=InnoDB;
+
+-- =====================================================
+-- 10. BOOKING_APPROVALS: LICH SU DUYET DAT PHONG
 -- =====================================================
 CREATE TABLE IF NOT EXISTS booking_approvals (
     approval_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -175,7 +248,7 @@ CREATE TABLE IF NOT EXISTS booking_approvals (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 10. EQUIPMENT_HISTORY: LICH SU THIET BI
+-- 11. EQUIPMENT_HISTORY: LICH SU THIET BI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS equipment_history (
     history_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -199,7 +272,7 @@ CREATE TABLE IF NOT EXISTS equipment_history (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 11. MAINTENANCE_REPORTS: BAO HONG / BAO TRI
+-- 12. MAINTENANCE_REPORTS: BAO HONG / BAO TRI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS maintenance_reports (
     report_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -234,7 +307,7 @@ CREATE TABLE IF NOT EXISTS maintenance_reports (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 12. MAINTENANCE_HISTORY: LICH SU XU LY BAO TRI
+-- 13. MAINTENANCE_HISTORY: LICH SU XU LY BAO TRI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS maintenance_history (
     history_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -257,22 +330,6 @@ CREATE TABLE IF NOT EXISTS maintenance_history (
         ON UPDATE CASCADE ON DELETE SET NULL,
     INDEX idx_maintenance_history_report (report_id)
 ) ENGINE=InnoDB;
-SHOW DATABASES;
-
-DESCRIBE equipment;
-DESCRIBE equipment_types;
-DESCRIBE rooms;
 
 USE ql_phong_thuc_hanh;
 SHOW TABLES;
-USE ql_phong_thuc_hanh;
-
-SELECT COUNT(*) AS so_phong FROM rooms;
-SELECT COUNT(*) AS so_thiet_bi FROM equipment;
-SELECT COUNT(*) AS so_toa_nha FROM buildings;
-SELECT COUNT(*) AS so_loai_thiet_bi FROM equipment_types;
-
--- Kiem tra sau khi tao bang (co the chay rieng):
--- SHOW TABLES;
--- SHOW CREATE TABLE bookings;
--- SHOW CREATE TABLE booking_approvals;

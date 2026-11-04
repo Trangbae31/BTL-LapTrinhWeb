@@ -131,7 +131,9 @@ class DashboardModel
     }
 
     /**
-     * Lấy các yêu cầu đặt phòng gần đây của người dùng.
+     * Lấy các yêu cầu đặt phòng gần đây.
+     * Manager xem tất cả; người dùng khác chỉ xem lịch của mình.
+     * Hoạt động chung của nhà trường vẫn được hiển thị dù user_id là NULL.
      */
     public function getRecentBookings(int $userId, bool $isManager): array
     {
@@ -142,12 +144,13 @@ class DashboardModel
                 b.start_time,
                 b.end_time,
                 b.status,
+                b.booking_type,
                 r.room_code,
                 r.room_name,
-                u.full_name
+                COALESCE(u.full_name, 'Hoạt động chung của nhà trường') AS full_name
             FROM bookings b
             INNER JOIN rooms r ON r.room_id = b.room_id
-            INNER JOIN users u ON u.user_id = b.user_id
+            LEFT JOIN users u ON u.user_id = b.user_id
         ";
 
         if (!$isManager) {

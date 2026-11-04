@@ -8,8 +8,9 @@ function bookingEditEscape($value): string
 $booking = $booking ?? [];
 $rooms = $rooms ?? [];
 $errors = $errors ?? [];
+$old = $old ?? ($_POST ?? []);
 
-$bookingId = (int)($booking['booking_id'] ?? $_GET['id'] ?? 0);
+$bookingId = (int)($booking['booking_id'] ?? 0);
 
 $startDate = !empty($booking['start_time'])
     ? date('Y-m-d', strtotime($booking['start_time']))
@@ -23,14 +24,14 @@ $endTime = !empty($booking['end_time'])
     ? date('H:i', strtotime($booking['end_time']))
     : '';
 
-$old = $_POST ?? [];
-
 $selectedRoom = $old['room_id'] ?? $booking['room_id'] ?? '';
 $title = $old['title'] ?? $booking['title'] ?? '';
 $bookingDate = $old['booking_date'] ?? $startDate;
 $inputStartTime = $old['start_time'] ?? $startTime;
 $inputEndTime = $old['end_time'] ?? $endTime;
 $purpose = $old['purpose'] ?? $booking['purpose'] ?? '';
+
+$roomInactive = ($booking['room_status'] ?? 'active') === 'inactive';
 
 ?>
 
@@ -72,6 +73,27 @@ $purpose = $old['purpose'] ?? $booking['purpose'] ?? '';
 
         <h2>Thông tin đặt phòng</h2>
 
+        <?php if ($roomInactive): ?>
+
+            <div class="error-message" role="alert">
+                <p>
+                    Phòng
+                    <strong>
+                        <?= bookingEditEscape(
+                            ($booking['room_code'] ?? '') . ' - ' .
+                            ($booking['room_name'] ?? '')
+                        ) ?>
+                    </strong>
+                    hiện đã ngừng hoạt động.
+                </p>
+
+                <p>
+                    Vui lòng chọn một phòng đang hoạt động khác trước khi lưu thay đổi.
+                </p>
+            </div>
+
+        <?php endif; ?>
+
         <?php if (!empty($errors)): ?>
 
             <div class="error-message" role="alert">
@@ -90,6 +112,8 @@ $purpose = $old['purpose'] ?? $booking['purpose'] ?? '';
             method="post"
             action="index.php?action=booking_update&id=<?= $bookingId ?>"
         >
+
+            <?= CSRF::field() ?>
 
             <div class="form-group">
 

@@ -1,3 +1,4 @@
+
 <?php
 
 function calendarEscape($value): string
@@ -6,6 +7,24 @@ function calendarEscape($value): string
 }
 
 $currentUserId = (int)($_SESSION['user']['user_id'] ?? 0);
+
+$roles = $_SESSION['user']['roles'] ?? [];
+if (!is_array($roles)) {
+    $roles = [];
+}
+
+$role = '';
+foreach (['admin', 'manager', 'teacher', 'technician'] as $candidate) {
+    if (in_array($candidate, $roles, true)) {
+        $role = $candidate;
+        break;
+    }
+}
+
+$isManager = in_array($role, ['admin', 'manager'], true);
+$isTeacher = $role === 'teacher';
+$canCreate = in_array($role, ['admin', 'manager', 'teacher'], true);
+
 $keyword = $keyword ?? ($_GET['keyword'] ?? '');
 
 $statusLabels = [
@@ -23,16 +42,20 @@ $statusClasses = [
 ];
 
 $messageLabels = [
-    'created' => 'Đã gửi yêu cầu đặt phòng.',
+    'created' => 'Đã gửi yêu cầu đặt phòng. Yêu cầu đang chờ duyệt.',
+    'created_approved' => 'Đã tạo lịch đặt phòng và xác nhận thành công.',
     'updated' => 'Đã cập nhật yêu cầu đặt phòng.',
-    'cancelled' => 'Đã hủy yêu cầu đặt phòng.',
-    'cancel_failed' => 'Không thể hủy yêu cầu. Có thể yêu cầu đã được xử lý.',
+    'cancelled' => 'Đã hủy lịch đặt phòng.',
+    'cancel_failed' => 'Không thể hủy lịch. Có thể lịch đã được xử lý hoặc bạn không có quyền.',
+    'cancel_reason_required' => 'Manager/Admin cần nhập lý do khi hủy lịch.',
     'not_allowed' => 'Bạn không có quyền chỉnh sửa yêu cầu này.',
-    'update_failed' => 'Không thể cập nhật yêu cầu đặt phòng.',
-    'invalid' => 'Thông tin cập nhật không hợp lệ.'
+    'cancellation_request_sent' => 'Đã gửi yêu cầu hủy lịch. Lịch vẫn được giữ cho đến khi Manager/Admin xử lý.',
+    'cancellation_request_failed' => 'Không thể gửi yêu cầu hủy. Có thể lịch không còn hợp lệ hoặc đã có yêu cầu đang chờ.',
+    'cancellation_request_invalid' => 'Vui lòng nhập đầy đủ mã lịch và lý do hủy.'
 ];
 
 $messageCode = $_GET['message'] ?? '';
+$messageCode = is_string($messageCode) ? $messageCode : '';
 $message = $messageLabels[$messageCode] ?? '';
 
 ?>
@@ -80,13 +103,21 @@ $message = $messageLabels[$messageCode] ?? '';
 
         .booking-actions {
             display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            min-width: 180px;
         }
 
         .booking-actions form {
             margin: 0;
+        }
+
+        .booking-actions textarea {
+            width: 100%;
+            min-height: 55px;
+            box-sizing: border-box;
+            margin-bottom: 5px;
         }
 
         .booking-actions button {
@@ -111,6 +142,13 @@ $message = $messageLabels[$messageCode] ?? '';
             font-size: 14px;
             margin-bottom: 15px;
         }
+
+        .calendar-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
     </style>
 </head>
 
@@ -130,9 +168,11 @@ $message = $messageLabels[$messageCode] ?? '';
             </p>
         </div>
 
-        <a href="index.php?action=booking_create" class="btn-primary">
-            + Đặt phòng
-        </a>
+        <?php if ($canCreate): ?>
+            <a href="index.php?action=booking_create" class="btn-primary">
+                + Đặt phòng
+            </a>
+        <?php endif; ?>
 
     </header>
 
@@ -146,9 +186,28 @@ $message = $messageLabels[$messageCode] ?? '';
             </div>
         <?php endif; ?>
 
+        <?php if ($isManager): ?>
+            <div class="calendar-links">
+                <a href="index.php?action=booking_approvals" class="btn-secondary">
+                    Duyệt yêu cầu đặt phòng
+                </a>
+
+                <a href="index.php?action=booking_cancellation_requests" class="btn-secondary">
+                    Xử lý yêu cầu hủy lịch
+                </a>
+            </div>
+        <?php endif; ?>
+
         <p class="booking-note">
-            Bạn có thể chỉnh sửa hoặc hủy yêu cầu khi trạng thái còn là
-            <strong>Chờ duyệt</strong>.
+            <?php if ($isTeacher): ?>
+                Bạn chỉ được sửa hoặc hủy trực tiếp yêu cầu đang chờ duyệt của mình.
+                Với lịch đã duyệt, bạn cần gửi yêu cầu hủy và chờ Manager/Admin xử lý.
+            <?php elseif ($isManager): ?>
+                Bạn có thể hủy trực tiếp lịch đang chờ duyệt hoặc đã duyệt.
+                Vui lòng nhập lý do khi thực hiện hủy.
+            <?php else: ?>
+                Bạn đang ở chế độ xem lịch đã được duyệt.
+            <?php endif; ?>
         </p>
 
         <form method="get" action="index.php" class="search-form">
@@ -187,7 +246,7 @@ $message = $messageLabels[$messageCode] ?? '';
                     <thead>
                         <tr>
                             <th>STT</th>
-                            <th>Người đặt</th>
+                            <th>Người sử dụng</th>
                             <th>Mã phòng</th>
                             <th>Tên phòng</th>
                             <th>Nội dung</th>
@@ -203,65 +262,67 @@ $message = $messageLabels[$messageCode] ?? '';
                     <?php foreach ($bookings as $index => $booking): ?>
 
                         <?php
-                        $isOwner = (int)($booking['user_id'] ?? 0) === $currentUserId;
-                        $isPending = ($booking['status'] ?? '') === 'pending';
+                        $ownerId = (int)($booking['user_id'] ?? 0);
+                        $isOwner = $ownerId === $currentUserId;
+
                         $status = $booking['status'] ?? '';
+                        $isPending = $status === 'pending';
+                        $isApproved = $status === 'approved';
+
+                        $displayName = $booking['user_name'] ?? '';
+                        if ($displayName === '' || $displayName === null) {
+                            $displayName = 'Hoạt động chung của nhà trường';
+                        }
+
+                        $bookingId = (int)$booking['booking_id'];
                         ?>
 
                         <tr>
 
                             <td><?= $index + 1 ?></td>
 
-                            <td>
-                                <?= calendarEscape($booking['user_name'] ?? '') ?>
-                            </td>
+                            <td><?= calendarEscape($displayName) ?></td>
+
+                            <td><?= calendarEscape($booking['room_code'] ?? '') ?></td>
+
+                            <td><?= calendarEscape($booking['room_name'] ?? '') ?></td>
 
                             <td>
-                                <?= calendarEscape($booking['room_code'] ?? '') ?>
+                                <strong><?= calendarEscape($booking['title'] ?? '') ?></strong>
+                                <?php if (!empty($booking['booking_type'])): ?>
+                                    <br>
+                                    <small>
+                                        <?php
+                                        $typeLabels = [
+                                            'personal' => 'Cá nhân',
+                                            'on_behalf' => 'Đặt thay giảng viên',
+                                            'school_wide' => 'Hoạt động chung'
+                                        ];
+                                        echo calendarEscape(
+                                            $typeLabels[$booking['booking_type']] ?? $booking['booking_type']
+                                        );
+                                        ?>
+                                    </small>
+                                <?php endif; ?>
                             </td>
 
-                            <td>
-                                <?= calendarEscape($booking['room_name'] ?? '') ?>
-                            </td>
+                            <td><?= calendarEscape($booking['start_time'] ?? '') ?></td>
+
+                            <td><?= calendarEscape($booking['end_time'] ?? '') ?></td>
 
                             <td>
-                                <?= calendarEscape($booking['title'] ?? '') ?>
-                            </td>
-
-                            <td>
-                                <?= calendarEscape(
-                                    !empty($booking['start_time'])
-                                        ? date('d/m/Y H:i', strtotime($booking['start_time']))
-                                        : ''
-                                ) ?>
-                            </td>
-
-                            <td>
-                                <?= calendarEscape(
-                                    !empty($booking['end_time'])
-                                        ? date('d/m/Y H:i', strtotime($booking['end_time']))
-                                        : ''
-                                ) ?>
-                            </td>
-
-                            <td>
-                                <span class="booking-status <?= calendarEscape(
-                                    $statusClasses[$status] ?? ''
-                                ) ?>">
-                                    <?= calendarEscape(
-                                        $statusLabels[$status] ?? $status
-                                    ) ?>
+                                <span class="booking-status <?= $statusClasses[$status] ?? '' ?>">
+                                    <?= calendarEscape($statusLabels[$status] ?? $status) ?>
                                 </span>
                             </td>
 
                             <td>
+                                <div class="booking-actions">
 
-                                <?php if ($isOwner && $isPending): ?>
-
-                                    <div class="booking-actions">
+                                    <?php if ($isTeacher && $isOwner && $isPending): ?>
 
                                         <a
-                                            href="index.php?action=booking_edit&id=<?= (int)$booking['booking_id'] ?>"
+                                            href="index.php?action=booking_edit&id=<?= $bookingId ?>"
                                             class="btn-secondary"
                                         >
                                             Sửa
@@ -269,27 +330,81 @@ $message = $messageLabels[$messageCode] ?? '';
 
                                         <form
                                             method="post"
-                                            action="index.php?action=booking_cancel&id=<?= (int)$booking['booking_id'] ?>"
-                                            onsubmit="return confirm('Bạn có chắc chắn muốn hủy yêu cầu đặt phòng này?');"
+                                            action="index.php?action=booking_cancel"
+                                            onsubmit="return confirm('Bạn có chắc muốn hủy yêu cầu đặt phòng này?');"
                                         >
+                                            <?= CSRF::field() ?>
 
-                                            <button
-                                                type="submit"
-                                                class="btn-secondary"
+                                            <input
+                                                type="hidden"
+                                                name="booking_id"
+                                                value="<?= $bookingId ?>"
                                             >
-                                                Hủy
-                                            </button>
 
+                                            <button type="submit" class="btn-secondary">
+                                                Hủy yêu cầu
+                                            </button>
                                         </form>
 
-                                    </div>
+                                    <?php elseif ($isTeacher && $isOwner && $isApproved): ?>
 
-                                <?php else: ?>
+                                        <form
+                                            method="post"
+                                            action="index.php?action=booking_cancellation_request"
+                                            onsubmit="return confirm('Gửi yêu cầu hủy lịch đã được duyệt?');"
+                                        >
+                                            <?= CSRF::field() ?>
 
-                                    <span>—</span>
+                                            <input
+                                                type="hidden"
+                                                name="booking_id"
+                                                value="<?= $bookingId ?>"
+                                            >
 
-                                <?php endif; ?>
+                                            <textarea
+                                                name="reason"
+                                                placeholder="Nhập lý do xin hủy lịch..."
+                                                required
+                                            ></textarea>
 
+                                            <button type="submit" class="btn-secondary">
+                                                Gửi yêu cầu hủy
+                                            </button>
+                                        </form>
+
+                                    <?php elseif ($isManager && ($isPending || $isApproved)): ?>
+
+                                        <form
+                                            method="post"
+                                            action="index.php?action=booking_cancel"
+                                            onsubmit="return confirm('Bạn có chắc muốn hủy lịch này?');"
+                                        >
+                                            <?= CSRF::field() ?>
+
+                                            <input
+                                                type="hidden"
+                                                name="booking_id"
+                                                value="<?= $bookingId ?>"
+                                            >
+
+                                            <textarea
+                                                name="reason"
+                                                placeholder="Nhập lý do hủy lịch..."
+                                                required
+                                            ></textarea>
+
+                                            <button type="submit" class="btn-secondary">
+                                                Hủy lịch
+                                            </button>
+                                        </form>
+
+                                    <?php else: ?>
+
+                                        <span>Không có thao tác</span>
+
+                                    <?php endif; ?>
+
+                                </div>
                             </td>
 
                         </tr>

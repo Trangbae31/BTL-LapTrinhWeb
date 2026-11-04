@@ -21,6 +21,7 @@ require_once __DIR__ . '/../app/controllers/EquipmentApiController.php';
 require_once __DIR__ . '/../app/controllers/ReportController.php';
 require_once __DIR__ . '/../app/controllers/BookingController.php';
 require_once __DIR__ . '/../app/controllers/BookingApprovalController.php';
+require_once __DIR__ . '/../app/controllers/BookingCancellationController.php';
 
 $action = $_GET['action'] ?? 'login';
 
@@ -181,6 +182,32 @@ switch ($action) {
         (new BookingApprovalController())->reject();
         break;
 
+    // ==========================================
+    // YÊU CẦU HỦY LỊCH ĐÃ ĐƯỢC DUYỆT
+    // ==========================================
+
+    case 'booking_cancellation_request':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingCancellationController())->request();
+        break;
+
+    case 'booking_cancellation_requests':
+        requireLoginForRoute();
+        (new BookingCancellationController())->index();
+        break;
+
+    case 'booking_cancellation_approve':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingCancellationController())->approve();
+        break;
+
+    case 'booking_cancellation_reject':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new BookingCancellationController())->reject();
+        break;
 
     // ==========================================
     // QUẢN LÝ BÁO HỎNG VÀ BẢO TRÌ
@@ -205,19 +232,6 @@ switch ($action) {
         (new ReportController())->store();
         break;
 
-    // Hiển thị form chỉnh sửa báo hỏng
-    case 'report_edit':
-        requireLoginForRoute();
-        (new ReportController())->edit();
-        break;
-
-    // Lưu thông tin chỉnh sửa báo hỏng
-    case 'report_update_info':
-        requireLoginForRoute();
-        requirePostRequest();
-        (new ReportController())->update();
-        break;
-
     // Phân công kỹ thuật viên
     case 'report_assign':
         requireLoginForRoute();
@@ -238,12 +252,6 @@ switch ($action) {
         (new ReportController())->updateStatus();
         break;
 
-    // Xóa báo hỏng
-    case 'report_delete':
-        requireLoginForRoute();
-        requirePostRequest();
-        (new ReportController())->delete();
-        break;
 
 
     // ==========================================

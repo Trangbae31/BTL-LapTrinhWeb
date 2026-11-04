@@ -1,11 +1,17 @@
+
 <?php
+
 function bookingFormEscape($value): string
 {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
 $errors = $errors ?? [];
-$old = $_POST ?? [];
+$old = $old ?? ($_POST ?? []);
+$role = $role ?? 'teacher';
+
+$isManager = in_array($role, ['admin', 'manager'], true);
+
 ?>
 
 <!DOCTYPE html>
@@ -15,9 +21,30 @@ $old = $_POST ?? [];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đặt phòng thực hành</title>
     <link rel="stylesheet" href="assets/css/style.css">
+
+    <style>
+        .form-hint {
+            color: #796b60;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .form-errors {
+            padding: 12px 18px;
+            margin-bottom: 18px;
+            border-radius: 6px;
+            background: #fbe8e7;
+            color: #a12e2a;
+        }
+
+        .form-errors ul {
+            margin-bottom: 0;
+        }
+    </style>
 </head>
 
 <body>
+
 <main class="page-container">
 
     <header class="page-header">
@@ -25,7 +52,7 @@ $old = $_POST ?? [];
             <p class="page-label">SMART CAMPUS</p>
             <h1>Đặt phòng thực hành</h1>
             <p class="page-description">
-                Điền thông tin để gửi yêu cầu đặt phòng.
+                Điền thông tin để tạo lịch sử dụng phòng thực hành.
             </p>
         </div>
 
@@ -35,11 +62,12 @@ $old = $_POST ?? [];
     </header>
 
     <section class="content-card">
+
         <h2>Thông tin đặt phòng</h2>
 
         <?php if (!empty($errors)): ?>
             <div class="form-errors" role="alert">
-                <strong>Không thể gửi yêu cầu:</strong>
+                <strong>Không thể tạo lịch:</strong>
                 <ul>
                     <?php foreach ($errors as $error): ?>
                         <li><?= bookingFormEscape($error) ?></li>
@@ -49,6 +77,78 @@ $old = $_POST ?? [];
         <?php endif; ?>
 
         <form method="post" action="index.php?action=booking_store">
+
+            <?= CSRF::field() ?>
+
+            <?php if ($isManager): ?>
+
+                <div class="form-group">
+                    <label for="booking_type">Hình thức đặt phòng</label>
+
+                    <select
+                        id="booking_type"
+                        name="booking_type"
+                        required
+                    >
+                        <option value="">-- Chọn hình thức --</option>
+
+                        <option
+                            value="on_behalf"
+                            <?= ($old['booking_type'] ?? '') === 'on_behalf' ? 'selected' : '' ?>
+                        >
+                            Đặt thay giảng viên
+                        </option>
+
+                        <option
+                            value="school_wide"
+                            <?= ($old['booking_type'] ?? '') === 'school_wide' ? 'selected' : '' ?>
+                        >
+                            Hoạt động chung của nhà trường
+                        </option>
+                    </select>
+
+                    <p class="form-hint">
+                        Lịch do Manager/Admin tạo sẽ được xác nhận tự động.
+                    </p>
+                </div>
+
+                <div
+                    class="form-group"
+                    id="teacher-selector"
+                    style="display: none;"
+                >
+                    <label for="teacher_id">Giảng viên sử dụng phòng</label>
+
+                    <select id="teacher_id" name="teacher_id">
+                        <option value="">-- Chọn giảng viên --</option>
+
+                        <?php foreach ($teachers as $teacher): ?>
+                            <option
+                                value="<?= (int)$teacher['user_id'] ?>"
+                                <?= (string)($old['teacher_id'] ?? '') ===
+                                    (string)$teacher['user_id'] ? 'selected' : '' ?>
+                            >
+                                <?= bookingFormEscape($teacher['full_name']) ?>
+                                <?php if (!empty($teacher['email'])): ?>
+                                    (<?= bookingFormEscape($teacher['email']) ?>)
+                                <?php endif; ?>
+                            </option>
+                        <?php endforeach; ?>
+
+                    </select>
+                </div>
+
+            <?php else: ?>
+
+                <div class="form-group">
+                    <label>Hình thức đặt phòng</label>
+                    <input type="text" value="Đặt phòng cá nhân" disabled>
+                    <p class="form-hint">
+                        Yêu cầu của giảng viên sẽ ở trạng thái chờ duyệt.
+                    </p>
+                </div>
+
+            <?php endif; ?>
 
             <div class="form-group">
                 <label for="room_id">Phòng thực hành</label>
@@ -144,7 +244,7 @@ $old = $_POST ?? [];
                 </button>
 
                 <button type="submit" class="btn-primary">
-                    Gửi yêu cầu đặt phòng
+                    <?= $isManager ? 'Tạo lịch đặt phòng' : 'Gửi yêu cầu đặt phòng' ?>
                 </button>
             </div>
 
@@ -152,5 +252,28 @@ $old = $_POST ?? [];
     </section>
 
 </main>
+
+<?php if ($isManager): ?>
+<script>
+    const bookingType = document.getElementById('booking_type');
+    const teacherSelector = document.getElementById('teacher-selector');
+    const teacherSelect = document.getElementById('teacher_id');
+
+    function updateTeacherSelector() {
+        const isOnBehalf = bookingType.value === 'on_behalf';
+
+        teacherSelector.style.display = isOnBehalf ? 'block' : 'none';
+        teacherSelect.required = isOnBehalf;
+
+        if (!isOnBehalf) {
+            teacherSelect.value = '';
+        }
+    }
+
+    bookingType.addEventListener('change', updateTeacherSelector);
+    updateTeacherSelector();
+</script>
+<?php endif; ?>
+
 </body>
 </html>

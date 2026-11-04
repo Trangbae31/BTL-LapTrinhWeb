@@ -216,82 +216,78 @@ WHERE NOT EXISTS (
 
 -- =====================================================
 -- 8. YEU CAU DAT PHONG
+-- teacher tu dat: pending
+-- manager dat thay giang vien / hoat dong toan truong: approved
+-- Chi booking approved moi giu cho va chan trung lich.
 -- =====================================================
 INSERT INTO bookings (
-    user_id, room_id, title, purpose,
-    start_time, end_time, status, note
+    user_id, created_by_user_id, booking_type, room_id,
+    title, purpose, start_time, end_time, status, note
 )
 SELECT
-    u.user_id,
+    owner.user_id,
+    creator.user_id,
+    d.booking_type,
     r.room_id,
-    danh_sach_dat_phong.title,
-    danh_sach_dat_phong.purpose,
-    danh_sach_dat_phong.start_time,
-    danh_sach_dat_phong.end_time,
-    danh_sach_dat_phong.status,
-    danh_sach_dat_phong.note
+    d.title,
+    d.purpose,
+    d.start_time,
+    d.end_time,
+    d.status,
+    d.note
 FROM (
     SELECT
-        'thutrang.sample@example.com' AS email,
+        'thutrang.sample@example.com' AS owner_email,
+        'thutrang.sample@example.com' AS creator_email,
+        'personal' AS booking_type,
         'A101' AS room_code,
         'Thuc hanh CSDL - Nhom 1' AS title,
         'Bai thuc hanh truy van SQL' AS purpose,
-        '2026-10-29 08:00:00' AS start_time,
-        '2026-10-29 10:00:00' AS end_time,
-        'approved' AS status,
-        'Da duoc duyet' AS note
+        '2026-11-06 08:00:00' AS start_time,
+        '2026-11-06 10:00:00' AS end_time,
+        'pending' AS status,
+        'Giang vien tu tao, dang cho quan ly duyet' AS note
     UNION ALL SELECT
-        'mailan.sample@example.com', 'A101',
-        'On tap lap trinh', 'On tap lap trinh C#',
-        '2026-10-29 10:00:00', '2026-10-29 12:00:00',
-        'pending', 'Cho quan ly xac nhan'
+        'thutrang.sample@example.com', 'phuongthao.sample@example.com',
+        'on_behalf', 'A202', 'On tap lap trinh C#',
+        'Quan ly tao lich thay giang vien Nguyen Thu Trang',
+        '2026-11-06 09:00:00', '2026-11-06 11:00:00',
+        'approved', 'Quan ly tao thay giang vien, da duyet tu dong'
     UNION ALL SELECT
-        'thutrang.sample@example.com', 'B105',
-        'Thuc hanh mang may tinh', 'Cau hinh router va switch',
-        '2026-10-30 13:30:00', '2026-10-30 16:30:00',
-        'pending', 'Can chuan bi thiet bi mang'
+        NULL, 'phuongthao.sample@example.com',
+        'school_wide', 'C001', 'Sinh hoat hoc thuat toan truong',
+        'Hoat dong chung cua nha truong',
+        '2026-11-07 08:00:00', '2026-11-07 11:00:00',
+        'approved', 'Quan ly tao lich hoat dong toan truong'
     UNION ALL SELECT
-        'mailan.sample@example.com', 'A202',
-        'Bao cao do an', 'Trinh bay tien do do an',
-        '2026-10-30 08:00:00', '2026-10-30 09:30:00',
-        'rejected', 'Phong da co lich su dung'
+        'thutrang.sample@example.com', 'thutrang.sample@example.com',
+        'personal', 'B105', 'Thuc hanh mang may tinh',
+        'Cau hinh router va switch',
+        '2026-11-08 13:30:00', '2026-11-08 16:30:00',
+        'pending', 'Yeu cau ca nhan dang cho duyet'
     UNION ALL SELECT
-        'thutrang.sample@example.com', 'C001',
-        'Sinh hoat hoc thuat', 'Sinh hoat cau lac bo hoc thuat',
-        '2026-10-31 14:00:00', '2026-10-31 16:00:00',
-        'cancelled', 'Nguoi dat huy lich'
-    UNION ALL SELECT
-        'mailan.sample@example.com', 'A101',
-        'Thuc hanh lap trinh Python', 'Thuc hanh vong lap va ham',
-        '2026-11-01 08:00:00', '2026-11-01 11:00:00',
-        'approved', 'Da duyet'
-    UNION ALL SELECT
-        'thutrang.sample@example.com', 'B210',
-        'Lap rap may tinh', 'Thuc hanh lap rap phan cung',
-        '2026-11-01 13:00:00', '2026-11-01 15:00:00',
-        'pending', 'Cho duyet'
-    UNION ALL SELECT
-        'mailan.sample@example.com', 'A202',
-        'Thuc hanh Excel', 'Xu ly bang tinh',
-        '2026-11-02 09:00:00', '2026-11-02 11:00:00',
-        'approved', 'Da duyet'
-) AS danh_sach_dat_phong
-JOIN users AS u
-    ON u.email = danh_sach_dat_phong.email
-JOIN rooms AS r
-    ON r.room_code = danh_sach_dat_phong.room_code
+        'thutrang.sample@example.com', 'thutrang.sample@example.com',
+        'personal', 'B210', 'Lap rap may tinh',
+        'Thuc hanh lap rap phan cung',
+        '2026-11-09 13:00:00', '2026-11-09 15:00:00',
+        'approved', 'Booking ca nhan da duoc duyet'
+) AS d
+LEFT JOIN users owner
+    ON owner.email = d.owner_email
+JOIN users creator
+    ON creator.email = d.creator_email
+JOIN rooms r
+    ON r.room_code = d.room_code
 WHERE NOT EXISTS (
     SELECT 1
-    FROM bookings AS b
-    WHERE b.user_id = u.user_id
+    FROM bookings b
+    WHERE b.title = d.title
+      AND b.start_time = d.start_time
       AND b.room_id = r.room_id
-      AND b.title = danh_sach_dat_phong.title
-      AND b.start_time = danh_sach_dat_phong.start_time
 );
 
 -- =====================================================
 -- 9. LICH SU DUYET DAT PHONG
--- Phuong Thao la quan ly duyet phong
 -- =====================================================
 INSERT INTO booking_approvals (
     booking_id, reviewer_id, action, comment, reviewed_at
@@ -299,38 +295,67 @@ INSERT INTO booking_approvals (
 SELECT
     b.booking_id,
     reviewer.user_id,
-    danh_sach_duyet.action,
-    danh_sach_duyet.comment,
-    danh_sach_duyet.reviewed_at
+    d.action,
+    d.comment,
+    d.reviewed_at
 FROM (
     SELECT
-        'Thuc hanh CSDL - Nhom 1' AS title,
-        '2026-10-29 08:00:00' AS start_time,
+        'On tap lap trinh C#' AS title,
+        '2026-11-06 09:00:00' AS start_time,
         'approved' AS action,
-        'Phong va thoi gian phu hop' AS comment,
-        '2026-10-27 09:00:00' AS reviewed_at
+        'Quan ly tao thay giang vien, lich da duoc xac nhan' AS comment,
+        '2026-11-04 09:00:00' AS reviewed_at
     UNION ALL SELECT
-        'Bao cao do an', '2026-10-30 08:00:00',
-        'rejected', 'Trung lich su dung phong', '2026-10-27 10:00:00'
+        'Sinh hoat hoc thuat toan truong',
+        '2026-11-07 08:00:00',
+        'approved',
+        'Chap thuan hoat dong chung cua nha truong',
+        '2026-11-04 09:10:00'
     UNION ALL SELECT
-        'Thuc hanh lap trinh Python', '2026-11-01 08:00:00',
-        'approved', 'Da xac nhan lich', '2026-10-27 10:30:00'
-    UNION ALL SELECT
-        'Thuc hanh Excel', '2026-11-02 09:00:00',
-        'approved', 'Dong y su dung phong', '2026-10-27 11:00:00'
-) AS danh_sach_duyet
-JOIN bookings AS b
-    ON b.title = danh_sach_duyet.title
-   AND b.start_time = danh_sach_duyet.start_time
-JOIN users AS reviewer
+        'Lap rap may tinh',
+        '2026-11-09 13:00:00',
+        'approved',
+        'Phong va thoi gian phu hop',
+        '2026-11-04 09:20:00'
+) AS d
+JOIN bookings b
+    ON b.title = d.title
+   AND b.start_time = d.start_time
+JOIN users reviewer
     ON reviewer.email = 'phuongthao.sample@example.com'
 WHERE NOT EXISTS (
     SELECT 1
-    FROM booking_approvals AS a
+    FROM booking_approvals a
     WHERE a.booking_id = b.booking_id
       AND a.reviewer_id = reviewer.user_id
-      AND a.action = danh_sach_duyet.action
+      AND a.action = d.action
 );
+
+-- =====================================================
+-- 9A. YEU CAU HUY BOOKING DA DUOC DUYET
+-- Booking van giu trang thai approved cho den khi quan ly xu ly.
+-- =====================================================
+INSERT INTO booking_cancellation_requests (
+    booking_id, requester_id, reason, status, requested_at
+)
+SELECT
+    b.booking_id,
+    requester.user_id,
+    'Giang vien co lich cong tac dot xuat, xin phep huy lich.',
+    'pending',
+    '2026-11-04 10:00:00'
+FROM bookings b
+JOIN users requester
+    ON requester.email = 'thutrang.sample@example.com'
+WHERE b.title = 'Lap rap may tinh'
+  AND b.start_time = '2026-11-09 13:00:00'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM booking_cancellation_requests cr
+      WHERE cr.booking_id = b.booking_id
+        AND cr.requester_id = requester.user_id
+        AND cr.status = 'pending'
+  );
 
 -- =====================================================
 -- 10. LICH SU THAY DOI THIET BI
@@ -486,6 +511,7 @@ UNION ALL SELECT 'equipment_types', COUNT(*) FROM equipment_types
 UNION ALL SELECT 'equipment', COUNT(*) FROM equipment
 UNION ALL SELECT 'bookings', COUNT(*) FROM bookings
 UNION ALL SELECT 'booking_approvals', COUNT(*) FROM booking_approvals
+UNION ALL SELECT 'booking_cancellation_requests', COUNT(*) FROM booking_cancellation_requests
 UNION ALL SELECT 'equipment_history', COUNT(*) FROM equipment_history
 UNION ALL SELECT 'maintenance_reports', COUNT(*) FROM maintenance_reports
 UNION ALL SELECT 'maintenance_history', COUNT(*) FROM maintenance_history;

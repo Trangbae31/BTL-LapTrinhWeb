@@ -9,9 +9,6 @@ $isTechnician = $isTechnician ?? false;
 $isTeacher = $isTeacher ?? false;
 $isAdmin = $isAdmin ?? false;
 
-// Admin chỉ được xem.
-// Kỹ thuật viên chỉ được xử lý phiếu được giao.
-// Không để tài khoản kỹ thuật viên hiển thị chức năng quản lý.
 if ($isAdmin) {
     $isManager = false;
     $isTechnician = false;
@@ -30,8 +27,7 @@ $currentUserId = (int)(
     ?? 0
 );
 
-// Kỹ thuật viên chỉ hiển thị phiếu được giao cho mình.
-// Đây là lớp lọc bổ sung ở giao diện; Controller vẫn phải kiểm tra quyền.
+// Kỹ thuật viên chỉ xem phiếu được giao cho mình
 if ($isTechnician) {
     $reports = array_values(array_filter(
         $reports,
@@ -204,15 +200,6 @@ function reportEscape($value): string
             background: #d8e7ff;
         }
 
-        .btn-warning {
-            background: #fff1df;
-            color: #a66514;
-        }
-
-        .btn-warning:hover {
-            background: #ffe6c5;
-        }
-
         .btn-success {
             background: #e5f6eb;
             color: #247548;
@@ -220,15 +207,6 @@ function reportEscape($value): string
 
         .btn-success:hover {
             background: #d2efdc;
-        }
-
-        .btn-danger {
-            background: #ffebeb;
-            color: #b13b3b;
-        }
-
-        .btn-danger:hover {
-            background: #ffdada;
         }
 
         .summary-card {
@@ -552,8 +530,8 @@ function reportEscape($value): string
 
         <div class="role-note">
             <strong>Quyền quản lý bảo trì:</strong>
-            Bạn có thể xem tất cả phiếu, tạo phiếu, sửa thông tin,
-            phân công kỹ thuật viên, cập nhật trạng thái và xóa phiếu.
+            Bạn có thể xem tất cả phiếu, tạo phiếu và phân công
+            kỹ thuật viên xử lý sự cố.
         </div>
 
     <?php elseif ($isAdmin): ?>
@@ -745,16 +723,10 @@ function reportEscape($value): string
                                                 <div class="action-section">
 
                                                     <div class="action-title">
-                                                        QUẢN LÝ PHIẾU
+                                                        PHÂN CÔNG KỸ THUẬT VIÊN
                                                     </div>
 
                                                     <?php if (!$isFinished): ?>
-
-                                                        <a
-                                                            class="btn btn-edit"
-                                                            href="index.php?action=report_edit&amp;id=<?= $reportId ?>">
-                                                            ✏️ Sửa thông tin
-                                                        </a>
 
                                                         <form
                                                             class="action-form"
@@ -801,28 +773,10 @@ function reportEscape($value): string
                                                     <?php else: ?>
 
                                                         <span class="assigned-info">
-                                                            Phiếu đã kết thúc, không thể sửa hoặc phân công.
+                                                            Phiếu đã kết thúc, không thể phân công lại.
                                                         </span>
 
                                                     <?php endif; ?>
-
-                                                    <form
-                                                        method="POST"
-                                                        action="index.php?action=report_delete"
-                                                        onsubmit="return confirm('Bạn có chắc chắn muốn xóa phiếu #<?= $reportId ?> và toàn bộ lịch sử của phiếu này không?');">
-
-                                                        <input
-                                                            type="hidden"
-                                                            name="report_id"
-                                                            value="<?= $reportId ?>">
-
-                                                        <button
-                                                            type="submit"
-                                                            class="btn btn-danger">
-                                                            🗑️ Xóa phiếu
-                                                        </button>
-
-                                                    </form>
 
                                                 </div>
 

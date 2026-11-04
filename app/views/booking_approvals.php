@@ -1,4 +1,7 @@
 <?php
+
+require_once __DIR__ . '/../core/CSRF.php';
+
 $bookings = $bookings ?? [];
 
 $statusLabels = [
@@ -485,6 +488,8 @@ function approvalEscape($value): string
                                             value="<?= (int)$booking['booking_id'] ?>"
                                         >
 
+                                        <?= CSRF::field() ?>
+
                                         <input
                                             type="text"
                                             name="comment"
@@ -506,6 +511,8 @@ function approvalEscape($value): string
                                             name="booking_id"
                                             value="<?= (int)$booking['booking_id'] ?>"
                                         >
+
+                                        <?= CSRF::field() ?>
 
                                         <input
                                             type="text"

@@ -1,3 +1,4 @@
+
 <?php
 
 require_once __DIR__ . '/../../config/database.php';
@@ -12,8 +13,7 @@ class BookingApprovalModel
     }
 
     /**
-     * Lấy danh sách yêu cầu đặt phòng.
-     * Manager xem tất cả; có thể lọc theo trạng thái.
+     * Lấy danh sách yêu cầu đặt phòng theo trạng thái.
      */
     public function getBookings(string $status = 'pending'): array
     {
@@ -21,6 +21,8 @@ class BookingApprovalModel
             SELECT
                 b.booking_id,
                 b.user_id,
+                b.created_by_user_id,
+                b.booking_type,
                 b.room_id,
                 b.title,
                 b.purpose,
@@ -31,12 +33,14 @@ class BookingApprovalModel
                 b.created_at,
                 u.full_name AS requester_name,
                 u.email AS requester_email,
+                creator.full_name AS creator_name,
                 r.room_code,
                 r.room_name,
                 r.capacity,
                 bu.building_name
             FROM bookings b
-            INNER JOIN users u ON b.user_id = u.user_id
+            LEFT JOIN users u ON b.user_id = u.user_id
+            LEFT JOIN users creator ON b.created_by_user_id = creator.user_id
             INNER JOIN rooms r ON b.room_id = r.room_id
             LEFT JOIN buildings bu ON r.building_id = bu.building_id
         ";
@@ -70,12 +74,14 @@ class BookingApprovalModel
                 b.*,
                 u.full_name AS requester_name,
                 u.email AS requester_email,
+                creator.full_name AS creator_name,
                 r.room_code,
                 r.room_name,
                 r.capacity,
                 bu.building_name
             FROM bookings b
-            INNER JOIN users u ON b.user_id = u.user_id
+            LEFT JOIN users u ON b.user_id = u.user_id
+            LEFT JOIN users creator ON b.created_by_user_id = creator.user_id
             INNER JOIN rooms r ON b.room_id = r.room_id
             LEFT JOIN buildings bu ON r.building_id = bu.building_id
             WHERE b.booking_id = :booking_id
@@ -89,7 +95,7 @@ class BookingApprovalModel
     }
 
     /**
-     * Kiểm tra xem phòng có yêu cầu đã duyệt nào bị trùng giờ không.
+     * Kiểm tra lịch đã duyệt có trùng thời gian hay không.
      */
     private function hasApprovedOverlap(
         int $roomId,
@@ -108,6 +114,7 @@ class BookingApprovalModel
         ";
 
         $stmt = $this->db->prepare($sql);
+
         $stmt->execute([
             'room_id' => $roomId,
             'start_time' => $startTime,
@@ -116,6 +123,25 @@ class BookingApprovalModel
         ]);
 
         return (int)$stmt->fetchColumn() > 0;
+    }
+
+    /**
+     * Khóa phòng và kiểm tra phòng còn hoạt động.
+     */
+    private function lockActiveRoom(int $roomId): bool
+    {
+        $stmt = $this->db->prepare("
+            SELECT status
+            FROM rooms
+            WHERE room_id = :room_id
+            FOR UPDATE
+        ");
+
+        $stmt->execute(['room_id' => $roomId]);
+
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $room !== false && $room['status'] === 'active';
     }
 
     /**
@@ -137,6 +163,7 @@ class BookingApprovalModel
             ");
 
             $stmt->execute(['booking_id' => $bookingId]);
+
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$booking || $booking['status'] !== 'pending') {
@@ -144,8 +171,21 @@ class BookingApprovalModel
                 return false;
             }
 
+            // Không duyệt lịch đã bắt đầu hoặc đã qua.
+            if (strtotime($booking['start_time']) <= time()) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            $roomId = (int)$booking['room_id'];
+
+            if (!$this->lockActiveRoom($roomId)) {
+                $this->db->rollBack();
+                return false;
+            }
+
             if ($this->hasApprovedOverlap(
-                (int)$booking['room_id'],
+                $roomId,
                 $booking['start_time'],
                 $booking['end_time'],
                 $bookingId
@@ -194,6 +234,7 @@ class BookingApprovalModel
             ]);
 
             $this->db->commit();
+
             return true;
 
         } catch (Throwable $e) {
@@ -224,6 +265,7 @@ class BookingApprovalModel
             ");
 
             $stmt->execute(['booking_id' => $bookingId]);
+
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$booking || $booking['status'] !== 'pending') {
@@ -267,10 +309,12 @@ class BookingApprovalModel
             $history->execute([
                 'booking_id' => $bookingId,
                 'reviewer_id' => $reviewerId,
+                'action' => 'rejected',
                 'comment' => $comment
             ]);
 
             $this->db->commit();
+
             return true;
 
         } catch (Throwable $e) {

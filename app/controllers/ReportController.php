@@ -1,4 +1,3 @@
-
 <?php
 
 class ReportController
@@ -43,24 +42,12 @@ class ReportController
 
                 $stmt->execute([$userId]);
                 $roles = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
             } catch (Throwable $e) {
                 error_log('Get roles error: ' . $e->getMessage());
             }
         }
 
-        // Neu database khong tra ve role thi moi dung session cu
-        if (empty($roles)) {
-            $user = $this->getUser();
-
-            if (!empty($user['roles']) && is_array($user['roles'])) {
-                $roles = $user['roles'];
-            }
-
-            if (!empty($user['role'])) {
-                $roles[] = $user['role'];
-            }
-        }
+        // Chi lay quyen tu database, khong fallback sang session
 
         $this->rolesCache = array_values(
             array_unique(array_map('strval', $roles))
@@ -81,7 +68,7 @@ class ReportController
 
     private function isManager(): bool
     {
-        return $this->hasRole('maintenance_manager');
+        return $this->hasRole('manager');
     }
 
     private function isTechnician(): bool
@@ -124,7 +111,7 @@ class ReportController
 
     private function escapeError(Throwable $e): string
     {
-        return htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+        return 'Đã xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại sau.';
     }
 
     // ==========================================
@@ -137,7 +124,7 @@ class ReportController
 
         $this->requireRoles([
             'admin',
-            'maintenance_manager',
+            'manager',
             'teacher',
             'technician'
         ]);
@@ -182,15 +169,12 @@ class ReportController
 
             if ($canViewAll) {
                 // Admin va quan ly xem tat ca
-
             } elseif ($isTechnician) {
                 $sql .= " WHERE mr.assigned_to = ?";
                 $params[] = $userId;
-
             } elseif ($isTeacher) {
                 $sql .= " WHERE mr.reporter_id = ?";
                 $params[] = $userId;
-
             } else {
                 http_response_code(403);
                 exit('Ban khong co quyen xem danh sach bao hong.');
@@ -227,7 +211,6 @@ class ReportController
             $roles = $this->getRoles();
 
             require __DIR__ . '/../views/report_list.php';
-
         } catch (Throwable $e) {
             error_log('Report index error: ' . $e->getMessage());
             exit('Loi tai danh sach bao hong: ' . $this->escapeError($e));
@@ -236,14 +219,14 @@ class ReportController
 
     // ==========================================
     // 3. TAO PHIEU BAO HONG
-    // Teacher va maintenance_manager
+    // Teacher va manager
     // ==========================================
 
     public function create()
     {
         global $pdo;
 
-        $this->requireRoles(['teacher', 'maintenance_manager']);
+        $this->requireRoles(['teacher', 'manager']);
 
         try {
             $sql = "
@@ -253,7 +236,6 @@ class ReportController
                     equipment_name
                 FROM equipment
                 WHERE status <> 'retired'
-                   OR status IS NULL
                 ORDER BY equipment_name
             ";
 
@@ -261,7 +243,6 @@ class ReportController
             $report = null;
 
             require __DIR__ . '/../views/report_form.php';
-
         } catch (Throwable $e) {
             error_log('Report create error: ' . $e->getMessage());
             exit('Loi tai danh sach thiet bi: ' . $this->escapeError($e));
@@ -270,13 +251,14 @@ class ReportController
 
     // ==========================================
     // 4. LUU PHIEU BAO HONG MOI
+    // Moi thiet bi chi co mot phieu chua ket thuc
     // ==========================================
 
     public function store()
     {
         global $pdo;
 
-        $this->requireRoles(['teacher', 'maintenance_manager']);
+        $this->requireRoles(['teacher', 'manager']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: index.php?action=report_form');
@@ -295,19 +277,35 @@ class ReportController
         try {
             $pdo->beginTransaction();
 
+            // Khoa dong thiet bi trong luc kiem tra va tao phieu
             $check = $pdo->prepare("
-                SELECT equipment_id
+                SELECT equipment_id, status
                 FROM equipment
                 WHERE equipment_id = ?
-                  AND (status <> 'retired' OR status IS NULL)
                 FOR UPDATE
             ");
-
             $check->execute([$equipmentId]);
+            $equipment = $check->fetch(PDO::FETCH_ASSOC);
 
-            if (!$check->fetch()) {
+            if (!$equipment || $equipment['status'] === 'retired') {
                 throw new RuntimeException(
                     'Thiet bi khong ton tai hoac da ngung su dung.'
+                );
+            }
+
+            // Tranh tao nhieu phieu dang xu ly cho cung mot thiet bi
+            $activeReport = $pdo->prepare("
+                SELECT report_id
+                FROM maintenance_reports
+                WHERE equipment_id = ?
+                  AND status IN ('reported', 'processing')
+                LIMIT 1
+            ");
+            $activeReport->execute([$equipmentId]);
+
+            if ($activeReport->fetch()) {
+                throw new RuntimeException(
+                    'Thiet bi nay da co phieu bao hong chua xu ly xong.'
                 );
             }
 
@@ -316,7 +314,6 @@ class ReportController
                     (equipment_id, reporter_id, title, description, status)
                 VALUES (?, ?, ?, ?, 'reported')
             ");
-
             $stmt->execute([
                 $equipmentId,
                 $userId,
@@ -331,16 +328,23 @@ class ReportController
                     (report_id, user_id, old_status, new_status, action_note)
                 VALUES (?, ?, NULL, 'reported', ?)
             ");
-
             $history->execute([
                 $reportId,
                 $userId,
                 'Tao phieu bao hong moi.'
             ]);
 
+            // Khi co phieu bao hong moi, thiet bi khong duoc tiep tuc su dung
+            $updateEquipment = $pdo->prepare("
+                UPDATE equipment
+                SET status = 'broken'
+                WHERE equipment_id = ?
+                  AND status <> 'retired'
+            ");
+            $updateEquipment->execute([$equipmentId]);
+
             $pdo->commit();
             $this->redirectToList();
-
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -351,176 +355,11 @@ class ReportController
         }
     }
 
-    // ==========================================
-    // 5. SUA THONG TIN PHIEU
-    // Chi maintenance_manager
-    // ==========================================
-
-    public function edit()
+        public function assign()
     {
         global $pdo;
 
-        $this->requireRoles(['maintenance_manager']);
-
-        $reportId = (int)($_GET['id'] ?? 0);
-
-        if ($reportId <= 0) {
-            $this->redirectToList();
-        }
-
-        try {
-            $stmt = $pdo->prepare("
-                SELECT
-                    report_id,
-                    equipment_id,
-                    title,
-                    description,
-                    status
-                FROM maintenance_reports
-                WHERE report_id = ?
-            ");
-
-            $stmt->execute([$reportId]);
-            $report = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$report) {
-                exit('Khong tim thay phieu bao hong.');
-            }
-
-            if (in_array($report['status'], ['resolved', 'cancelled'], true)) {
-                exit('Phieu da ket thuc, khong the chinh sua.');
-            }
-
-            $stmt = $pdo->prepare("
-                SELECT
-                    equipment_id,
-                    equipment_code,
-                    equipment_name
-                FROM equipment
-                WHERE status <> 'retired'
-                   OR status IS NULL
-                   OR equipment_id = ?
-                ORDER BY equipment_name
-            ");
-
-            $stmt->execute([(int)$report['equipment_id']]);
-            $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            require __DIR__ . '/../views/report_form.php';
-
-        } catch (Throwable $e) {
-            error_log('Report edit error: ' . $e->getMessage());
-            exit('Loi tai form sua phieu: ' . $this->escapeError($e));
-        }
-    }
-
-    // ==========================================
-    // 6. CAP NHAT THONG TIN PHIEU
-    // Chi maintenance_manager
-    // ==========================================
-
-    public function update()
-    {
-        global $pdo;
-
-        $this->requireRoles(['maintenance_manager']);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirectToList();
-        }
-
-        $userId = $this->getUserId();
-
-        $reportId = (int)($_GET['id'] ?? $_POST['report_id'] ?? 0);
-        $equipmentId = (int)($_POST['equipment_id'] ?? 0);
-        $title = trim($_POST['title'] ?? '');
-        $description = trim($_POST['description'] ?? '');
-
-        if ($reportId <= 0 || $equipmentId <= 0 || $title === '' || $description === '') {
-            exit('Vui long nhap day du thong tin.');
-        }
-
-        try {
-            $pdo->beginTransaction();
-
-            $stmt = $pdo->prepare("
-                SELECT status, equipment_id
-                FROM maintenance_reports
-                WHERE report_id = ?
-                FOR UPDATE
-            ");
-
-            $stmt->execute([$reportId]);
-            $report = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$report) {
-                throw new RuntimeException('Khong tim thay phieu bao hong.');
-            }
-
-            if (in_array($report['status'], ['resolved', 'cancelled'], true)) {
-                throw new RuntimeException('Phieu da ket thuc, khong the chinh sua.');
-            }
-
-            $stmt = $pdo->prepare("
-                SELECT equipment_id
-                FROM equipment
-                WHERE equipment_id = ?
-                  AND (status <> 'retired' OR status IS NULL)
-            ");
-
-            $stmt->execute([$equipmentId]);
-
-            if (!$stmt->fetch()) {
-                throw new RuntimeException(
-                    'Thiet bi khong ton tai hoac da ngung su dung.'
-                );
-            }
-
-            $stmt = $pdo->prepare("
-                UPDATE maintenance_reports
-                SET equipment_id = ?, title = ?, description = ?
-                WHERE report_id = ?
-            ");
-
-            $stmt->execute([$equipmentId, $title, $description, $reportId]);
-
-            $history = $pdo->prepare("
-                INSERT INTO maintenance_history
-                    (report_id, user_id, old_status, new_status, action_note)
-                VALUES (?, ?, ?, ?, ?)
-            ");
-
-            $history->execute([
-                $reportId,
-                $userId,
-                $report['status'],
-                $report['status'],
-                'Quan ly chinh sua thong tin phieu bao hong.'
-            ]);
-
-            $pdo->commit();
-            $this->redirectToList();
-
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-
-            error_log('Report update error: ' . $e->getMessage());
-            exit('Loi cap nhat phieu: ' . $this->escapeError($e));
-        }
-    }
-
-    // ==========================================
-    // 7. PHAN CONG KY THUAT VIEN
-    // Chi maintenance_manager
-    // ==========================================
-
-    public function assign()
-    {
-        global $pdo;
-
-        $this->requireRoles(['maintenance_manager']);
+        $this->requireRoles(['manager']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirectToList();
@@ -543,7 +382,6 @@ class ReportController
                 WHERE report_id = ?
                 FOR UPDATE
             ");
-
             $stmt->execute([$reportId]);
             $report = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -565,7 +403,6 @@ class ReportController
                   AND r.role_name = 'technician'
                 LIMIT 1
             ");
-
             $stmt->execute([$technicianId]);
 
             if (!$stmt->fetch()) {
@@ -581,7 +418,6 @@ class ReportController
                 SET assigned_to = ?
                 WHERE report_id = ?
             ");
-
             $stmt->execute([$technicianId, $reportId]);
 
             $note = $oldTechnicianId
@@ -593,7 +429,6 @@ class ReportController
                     (report_id, user_id, old_status, new_status, action_note)
                 VALUES (?, ?, ?, ?, ?)
             ");
-
             $stmt->execute([
                 $reportId,
                 $userId,
@@ -604,7 +439,6 @@ class ReportController
 
             $pdo->commit();
             $this->redirectToList();
-
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -616,7 +450,7 @@ class ReportController
     }
 
     // ==========================================
-    // 8. XEM LICH SU BAO TRI
+    // 6. XEM LICH SU BAO TRI
     // ==========================================
 
     public function history()
@@ -625,7 +459,7 @@ class ReportController
 
         $this->requireRoles([
             'admin',
-            'maintenance_manager',
+            'manager',
             'teacher',
             'technician'
         ]);
@@ -650,7 +484,6 @@ class ReportController
                 FROM maintenance_reports
                 WHERE report_id = ?
             ";
-
             $params = [$reportId];
 
             if (!$canViewAll) {
@@ -687,7 +520,6 @@ class ReportController
                 WHERE mh.report_id = ?
                 ORDER BY mh.changed_at DESC
             ";
-
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$reportId]);
             $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -703,42 +535,40 @@ class ReportController
                 JOIN equipment e ON mr.equipment_id = e.equipment_id
                 WHERE mr.report_id = ?
             ");
-
             $report->execute([$reportId]);
             $reportInfo = $report->fetch(PDO::FETCH_ASSOC);
 
             require __DIR__ . '/../views/report_history.php';
-
         } catch (Throwable $e) {
             error_log('Report history error: ' . $e->getMessage());
             exit('Loi tai lich su bao tri: ' . $this->escapeError($e));
         }
     }
 
-    // ==========================================
-    // 9. CAP NHAT TRANG THAI PHIEU
-    // Manager: tat ca phieu
-    // Technician: chi phieu duoc giao
+        // ==========================================
+    // 7. CAP NHAT TRANG THAI PHIEU
+    // Chi ky thuat vien duoc phan cong
     // ==========================================
 
     public function updateStatus()
     {
         global $pdo;
 
-        $this->requireRoles(['maintenance_manager', 'technician']);
+        $this->requireRoles(['technician']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirectToList();
         }
 
         $userId = $this->getUserId();
-        $isManager = $this->isManager();
-
         $reportId = (int)($_POST['report_id'] ?? 0);
         $newStatus = trim($_POST['status'] ?? '');
         $note = trim($_POST['resolution_note'] ?? '');
 
-        if ($reportId <= 0 || !in_array($newStatus, ['processing', 'resolved'], true)) {
+        if (
+            $reportId <= 0 ||
+            !in_array($newStatus, ['processing', 'resolved'], true)
+        ) {
             exit('Thong tin cap nhat khong hop le.');
         }
 
@@ -749,23 +579,16 @@ class ReportController
         try {
             $pdo->beginTransaction();
 
+            // Chi lay phieu duoc giao cho ky thuat vien dang dang nhap
             $sql = "
-                SELECT report_id, assigned_to, status
+                SELECT report_id, equipment_id, assigned_to, status
                 FROM maintenance_reports
                 WHERE report_id = ?
+                  AND assigned_to = ?
+                FOR UPDATE
             ";
-
-            $params = [$reportId];
-
-            if (!$isManager) {
-                $sql .= " AND assigned_to = ?";
-                $params[] = $userId;
-            }
-
-            $sql .= " FOR UPDATE";
-
             $stmt = $pdo->prepare($sql);
-            $stmt->execute($params);
+            $stmt->execute([$reportId, $userId]);
             $report = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$report) {
@@ -775,16 +598,22 @@ class ReportController
             }
 
             $oldStatus = $report['status'];
+            $equipmentId = (int)$report['equipment_id'];
 
             if (in_array($oldStatus, ['resolved', 'cancelled'], true)) {
-                throw new RuntimeException('Phieu da ket thuc, khong the cap nhat tiep.');
+                throw new RuntimeException(
+                    'Phieu da ket thuc, khong the cap nhat tiep.'
+                );
             }
 
+            // Chi cho phep reported -> processing -> resolved
             if (
                 ($oldStatus === 'reported' && $newStatus !== 'processing') ||
                 ($oldStatus === 'processing' && $newStatus !== 'resolved')
             ) {
-                throw new RuntimeException('Khong the chuyen trang thai theo trinh tu nay.');
+                throw new RuntimeException(
+                    'Khong the chuyen trang thai theo trinh tu nay.'
+                );
             }
 
             $stmt = $pdo->prepare("
@@ -798,13 +627,54 @@ class ReportController
                     resolution_note = ?
                 WHERE report_id = ?
             ");
-
             $stmt->execute([
                 $newStatus,
                 $newStatus,
                 $note !== '' ? $note : null,
                 $reportId
             ]);
+
+            // Dong bo trang thai thiet bi.
+            // Neu con phieu khac dang xu ly thi giu maintenance;
+            // neu con phieu moi bao hong thi giu broken;
+            // chi chuyen available khi khong con phieu chua ket thuc.
+            if ($newStatus === 'processing') {
+                $updateEquipment = $pdo->prepare("
+                    UPDATE equipment
+                    SET status = 'maintenance'
+                    WHERE equipment_id = ?
+                      AND status <> 'retired'
+                ");
+                $updateEquipment->execute([$equipmentId]);
+            } elseif ($newStatus === 'resolved') {
+                $updateEquipment = $pdo->prepare("
+                    UPDATE equipment
+                    SET status = CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM maintenance_reports other_report
+                            WHERE other_report.equipment_id = equipment.equipment_id
+                              AND other_report.report_id <> ?
+                              AND other_report.status = 'processing'
+                        ) THEN 'maintenance'
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM maintenance_reports other_report
+                            WHERE other_report.equipment_id = equipment.equipment_id
+                              AND other_report.report_id <> ?
+                              AND other_report.status = 'reported'
+                        ) THEN 'broken'
+                        ELSE 'available'
+                    END
+                    WHERE equipment_id = ?
+                      AND status <> 'retired'
+                ");
+                $updateEquipment->execute([
+                    $reportId,
+                    $reportId,
+                    $equipmentId
+                ]);
+            }
 
             $historyNote = $note !== ''
                 ? $note
@@ -815,7 +685,6 @@ class ReportController
                     (report_id, user_id, old_status, new_status, action_note)
                 VALUES (?, ?, ?, ?, ?)
             ");
-
             $stmt->execute([
                 $reportId,
                 $userId,
@@ -826,7 +695,6 @@ class ReportController
 
             $pdo->commit();
             $this->redirectToList();
-
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -834,61 +702,6 @@ class ReportController
 
             error_log('Report status update error: ' . $e->getMessage());
             exit('Loi cap nhat trang thai: ' . $this->escapeError($e));
-        }
-    }
-
-    // ==========================================
-    // 10. XOA PHIEU BAO HONG
-    // Chi maintenance_manager
-    // ==========================================
-
-    public function delete()
-    {
-        global $pdo;
-
-        $this->requireRoles(['maintenance_manager']);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirectToList();
-        }
-
-        $reportId = (int)($_POST['report_id'] ?? 0);
-
-        if ($reportId <= 0) {
-            $this->redirectToList();
-        }
-
-        try {
-            $pdo->beginTransaction();
-
-            $stmt = $pdo->prepare("
-                DELETE FROM maintenance_history
-                WHERE report_id = ?
-            ");
-
-            $stmt->execute([$reportId]);
-
-            $stmt = $pdo->prepare("
-                DELETE FROM maintenance_reports
-                WHERE report_id = ?
-            ");
-
-            $stmt->execute([$reportId]);
-
-            if ($stmt->rowCount() === 0) {
-                throw new RuntimeException('Khong tim thay phieu can xoa.');
-            }
-
-            $pdo->commit();
-            $this->redirectToList();
-
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-
-            error_log('Report delete error: ' . $e->getMessage());
-            exit('Loi xoa phieu: ' . $this->escapeError($e));
         }
     }
 }

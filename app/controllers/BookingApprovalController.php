@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/BookingApprovalModel.php';
 require_once __DIR__ . '/../core/Authorization.php';
+require_once __DIR__ . '/../core/CSRF.php';
 
 class BookingApprovalController
 {
@@ -37,7 +38,7 @@ class BookingApprovalController
             'all'
         ];
 
-        if (!in_array($status, $allowedStatuses, true)) {
+        if (!is_string($status) || !in_array($status, $allowedStatuses, true)) {
             $status = 'pending';
         }
 
@@ -66,13 +67,26 @@ class BookingApprovalController
             exit('Phương thức yêu cầu không hợp lệ.');
         }
 
+        // Kiểm tra CSRF trước khi xử lý dữ liệu.
+        CSRF::verifyOrFail();
+
         $bookingId = filter_input(
             INPUT_POST,
             'booking_id',
             FILTER_VALIDATE_INT
         );
 
-        $comment = trim($_POST['comment'] ?? '');
+        $comment = $_POST['comment'] ?? '';
+
+        if (!is_string($comment)) {
+            $this->redirectWithMessage(
+                'booking_approvals',
+                'error',
+                'Dữ liệu nhận xét không hợp lệ.'
+            );
+        }
+
+        $comment = trim($comment);
 
         if (!$bookingId || $bookingId <= 0) {
             $this->redirectWithMessage(
@@ -100,7 +114,7 @@ class BookingApprovalController
             $this->redirectWithMessage(
                 'booking_approvals',
                 'error',
-                'Không thể duyệt yêu cầu. Yêu cầu có thể đã được xử lý hoặc phòng đã có lịch trùng.'
+                'Không thể duyệt yêu cầu. Yêu cầu có thể đã được xử lý, phòng đã ngừng hoạt động hoặc lịch bị trùng.'
             );
 
         } catch (Throwable $e) {
@@ -126,13 +140,26 @@ class BookingApprovalController
             exit('Phương thức yêu cầu không hợp lệ.');
         }
 
+        // Kiểm tra CSRF trước khi xử lý dữ liệu.
+        CSRF::verifyOrFail();
+
         $bookingId = filter_input(
             INPUT_POST,
             'booking_id',
             FILTER_VALIDATE_INT
         );
 
-        $comment = trim($_POST['comment'] ?? '');
+        $comment = $_POST['comment'] ?? '';
+
+        if (!is_string($comment)) {
+            $this->redirectWithMessage(
+                'booking_approvals',
+                'error',
+                'Dữ liệu lý do từ chối không hợp lệ.'
+            );
+        }
+
+        $comment = trim($comment);
 
         if (!$bookingId || $bookingId <= 0) {
             $this->redirectWithMessage(

@@ -1,15 +1,6 @@
 
 <?php
-// Co $report thi la sua phieu, nguoc lai la tao phieu moi
-$isEdit = isset($report) && !empty($report);
-
-$pageTitle = $isEdit
-    ? 'Sửa phiếu báo hỏng'
-    : 'Tạo phiếu báo hỏng';
-
-$formAction = $isEdit
-    ? 'index.php?action=report_update_info&id=' . (int)$report['report_id']
-    : 'index.php?action=report_store';
+$equipment = $equipment ?? [];
 ?>
 
 <!DOCTYPE html>
@@ -17,8 +8,7 @@ $formAction = $isEdit
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?> - Smart Campus</title>
+    <title>Tạo phiếu báo hỏng - Smart Campus</title>
 
     <style>
         :root {
@@ -48,7 +38,6 @@ $formAction = $isEdit
             text-decoration: none;
         }
 
-        /* Thanh dau trang */
         .topbar {
             min-height: 72px;
             padding: 14px 5%;
@@ -99,7 +88,6 @@ $formAction = $isEdit
             color: var(--green-dark);
         }
 
-        /* Khu vuc form */
         .container {
             width: min(100% - 32px, 760px);
             margin: 42px auto;
@@ -225,7 +213,6 @@ $formAction = $isEdit
             line-height: 1.5;
         }
 
-        /* Nut thao tac */
         .form-actions {
             display: flex;
             justify-content: flex-end;
@@ -340,7 +327,7 @@ $formAction = $isEdit
         </div>
     </div>
 
-    <a class="back-link" href="index.php?action=reports">
+    <a class="back-link" href="index.php?action=report_list">
         ← Danh sách phiếu
     </a>
 </header>
@@ -350,24 +337,20 @@ $formAction = $isEdit
     <div class="breadcrumb">
         <a href="index.php?action=dashboard">Trang chủ</a>
         &nbsp; / &nbsp;
-        <a href="index.php?action=reports">Quản lý báo hỏng</a>
+        <a href="index.php?action=report_list">Quản lý báo hỏng</a>
         &nbsp; / &nbsp;
-        <?= $isEdit ? 'Sửa phiếu' : 'Tạo phiếu mới' ?>
+        Tạo phiếu mới
     </div>
 
     <section class="form-card">
 
         <div class="form-header">
-            <div class="form-icon">
-                <?= $isEdit ? '✏️' : '📋' ?>
-            </div>
+            <div class="form-icon">📋</div>
 
             <div>
-                <h1><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?> thiết bị</h1>
+                <h1>Tạo phiếu báo hỏng thiết bị</h1>
                 <p>
-                    <?= $isEdit
-                        ? 'Cập nhật thông tin của phiếu báo hỏng đang chọn.'
-                        : 'Điền thông tin để gửi yêu cầu kiểm tra và bảo trì thiết bị.' ?>
+                    Điền thông tin để gửi yêu cầu kiểm tra và bảo trì thiết bị.
                 </p>
             </div>
         </div>
@@ -375,11 +358,11 @@ $formAction = $isEdit
         <div class="form-body">
 
             <div class="notice">
-                💡 Hãy kiểm tra thông tin trước khi lưu để đảm bảo phiếu báo hỏng chính xác.
+                💡 Hãy kiểm tra thông tin trước khi gửi để đảm bảo
+                phiếu báo hỏng chính xác.
             </div>
 
-            <form action="<?= htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8') ?>"
-                  method="POST">
+            <form action="index.php?action=report_store" method="POST">
 
                 <div class="form-group">
                     <label for="equipment_id">
@@ -395,13 +378,8 @@ $formAction = $isEdit
                         <option value="">-- Chọn thiết bị --</option>
 
                         <?php foreach ($equipment as $item): ?>
-                            <option
-                                value="<?= (int)$item['equipment_id'] ?>"
-                                <?= $isEdit
-                                    && (int)$report['equipment_id'] === (int)$item['equipment_id']
-                                    ? 'selected'
-                                    : '' ?>
-                            >
+
+                            <option value="<?= (int)$item['equipment_id'] ?>">
                                 <?= htmlspecialchars(
                                     (string)$item['equipment_code'],
                                     ENT_QUOTES,
@@ -414,11 +392,13 @@ $formAction = $isEdit
                                     'UTF-8'
                                 ) ?>
                             </option>
+
                         <?php endforeach; ?>
+
                     </select>
 
                     <span class="hint">
-                        Chọn thiết bị cần báo hỏng hoặc cập nhật.
+                        Chọn thiết bị cần báo hỏng.
                     </span>
                 </div>
 
@@ -435,11 +415,6 @@ $formAction = $isEdit
                         maxlength="200"
                         placeholder="Ví dụ: Máy tính không khởi động"
                         required
-                        value="<?= htmlspecialchars(
-                            (string)($isEdit ? ($report['title'] ?? '') : ''),
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ) ?>"
                     >
 
                     <span class="hint">
@@ -459,11 +434,7 @@ $formAction = $isEdit
                         rows="5"
                         placeholder="Mô tả tình trạng thiết bị và sự cố đang gặp phải..."
                         required
-                    ><?= htmlspecialchars(
-                        (string)($isEdit ? ($report['description'] ?? '') : ''),
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?></textarea>
+                    ></textarea>
 
                     <span class="hint">
                         Mô tả cụ thể sẽ giúp việc kiểm tra và bảo trì thuận tiện hơn.
@@ -471,14 +442,18 @@ $formAction = $isEdit
                 </div>
 
                 <div class="form-actions">
-                    <a class="btn btn-secondary"
-                       href="index.php?action=reports">
+
+                    <a
+                        class="btn btn-secondary"
+                        href="index.php?action=report_list"
+                    >
                         ← Quay lại
                     </a>
 
                     <button class="btn btn-primary" type="submit">
-                        <?= $isEdit ? '✓ Lưu thay đổi' : '＋ Gửi phiếu báo hỏng' ?>
+                        ＋ Gửi phiếu báo hỏng
                     </button>
+
                 </div>
 
             </form>
