@@ -32,10 +32,15 @@ class Database
 
         $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
 
-        return new PDO($dsn, $username, $password, [
+        $pdo = new PDO($dsn, $username, $password, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+
+        // Đồng bộ thời gian MySQL với múi giờ Việt Nam của ứng dụng.
+        $pdo->exec("SET time_zone = '+07:00'");
+
+        return $pdo;
     }
 }

@@ -42,12 +42,14 @@ class DashboardController
 
         $recentBookings = $this->dashboardModel->getRecentBookings(
             $userId,
-            $isManager
+            $isManager,
+            $roles
         );
 
         $recentReports = $this->dashboardModel->getRecentReports(
             $userId,
-            $isManager
+            $isManager,
+            $roles
         );
 
         require __DIR__ . '/../views/dashboard.php';

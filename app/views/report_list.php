@@ -1,5 +1,6 @@
 
 <?php
+require_once __DIR__ . '/../core/CSRF.php';
 // ==========================================
 // XÁC ĐỊNH QUYỀN NGƯỜI DÙNG
 // ==========================================
@@ -10,7 +11,8 @@ $isTeacher = $isTeacher ?? false;
 $isAdmin = $isAdmin ?? false;
 
 if ($isAdmin) {
-    $isManager = false;
+    // Admin kế thừa toàn bộ thao tác nghiệp vụ của Manager.
+    $isManager = true;
     $isTechnician = false;
     $isTeacher = false;
 } elseif ($isTechnician) {
@@ -596,7 +598,7 @@ function reportEscape($value): string
                         <th>Thời gian</th>
                         <th>Lịch sử</th>
 
-                        <?php if (!$isAdmin): ?>
+                        <?php if (!$isAdmin || $isManager): ?>
                             <th>Thao tác</th>
                         <?php endif; ?>
                     </tr>
@@ -606,7 +608,7 @@ function reportEscape($value): string
                     <?php if (empty($reports)): ?>
 
                         <tr>
-                            <td colspan="<?= $isAdmin ? 10 : 11 ?>">
+                            <td colspan="11">
                                 <div class="empty-state">
                                     <div class="empty-icon">📭</div>
 
@@ -711,7 +713,7 @@ function reportEscape($value): string
                                     </a>
                                 </td>
 
-                                <?php if (!$isAdmin): ?>
+                                <?php if (!$isAdmin || $isManager): ?>
 
                                     <td>
                                         <div class="action-cell">
@@ -732,6 +734,7 @@ function reportEscape($value): string
                                                             class="action-form"
                                                             method="POST"
                                                             action="index.php?action=report_assign">
+                                                            <?= CSRF::field() ?>
 
                                                             <input
                                                                 type="hidden"
@@ -796,6 +799,7 @@ function reportEscape($value): string
                                                             class="action-form"
                                                             method="POST"
                                                             action="index.php?action=report_update">
+                                                            <?= CSRF::field() ?>
 
                                                             <input
                                                                 type="hidden"

@@ -1,5 +1,6 @@
 
 <?php
+require_once __DIR__ . '/../core/CSRF.php';
 $equipment = $equipment ?? [];
 ?>
 
@@ -363,6 +364,7 @@ $equipment = $equipment ?? [];
             </div>
 
             <form action="index.php?action=report_store" method="POST">
+                <?= CSRF::field() ?>
 
                 <div class="form-group">
                     <label for="equipment_id">

@@ -53,7 +53,7 @@ class BookingModel
             LEFT JOIN users u
                 ON b.user_id = u.user_id
 
-            INNER JOIN users creator
+            LEFT JOIN users creator
                 ON b.created_by_user_id = creator.user_id
 
             INNER JOIN rooms r
@@ -210,7 +210,7 @@ class BookingModel
             LEFT JOIN users u
                 ON b.user_id = u.user_id
 
-            INNER JOIN users creator
+            LEFT JOIN users creator
                 ON b.created_by_user_id = creator.user_id
 
             INNER JOIN rooms r
@@ -496,6 +496,27 @@ class BookingModel
                 'end_time' => $endTime,
                 'status' => $status
             ]);
+
+            $bookingId = (int)$this->db->lastInsertId();
+
+            // Lịch do Manager/Admin tạo được duyệt tự động,
+            // nhưng vẫn phải có bản ghi để truy vết người tạo/duyệt.
+            if ($status === 'approved') {
+                $history = $this->db->prepare("
+                    INSERT INTO booking_approvals (
+                        booking_id, reviewer_id, action, comment
+                    )
+                    VALUES (
+                        :booking_id, :reviewer_id, 'approved', :comment
+                    )
+                ");
+
+                $history->execute([
+                    'booking_id' => $bookingId,
+                    'reviewer_id' => $createdByUserId,
+                    'comment' => 'Lịch được Manager/Admin tạo và tự động xác nhận.'
+                ]);
+            }
 
             $this->db->commit();
 

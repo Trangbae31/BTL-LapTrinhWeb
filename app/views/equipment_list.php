@@ -282,7 +282,7 @@ th {
                                     <form
                                         method="post"
                                         action="index.php?action=equipment_delete"
-                                        onsubmit="return confirm('Bạn có chắc muốn xóa thiết bị này?')"
+                                        onsubmit="return confirm('Bạn có chắc muốn ngừng sử dụng thiết bị này?')"
                                     >
 
                                         <input
@@ -294,7 +294,7 @@ th {
                                         <?= CSRF::field() ?>
 
                                         <button class="delete" type="submit">
-                                            Xóa
+                                            Ngừng sử dụng
                                         </button>
 
                                     </form>

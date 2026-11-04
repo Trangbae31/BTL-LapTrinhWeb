@@ -13,23 +13,54 @@ class EquipmentController
         $this->model = new EquipmentModel();
     }
 
-    /**
-     * Admin và manager được quản lý thiết bị.
-     */
     private function authorizeManager(): void
     {
         Authorization::requireRole(['admin', 'manager']);
     }
 
-    /**
-     * Hiển thị danh sách thiết bị.
-     * Technician được phép xem để phục vụ công việc bảo trì.
-     */
+    private function redirect(string $type, string $message): void
+    {
+        $_SESSION['flash'] = [
+            'type' => $type,
+            'message' => $message
+        ];
+
+        header('Location: index.php?action=equipment');
+        exit();
+    }
+
+    private function postString(string $key): string
+    {
+        $value = $_POST[$key] ?? '';
+        return is_string($value) ? trim($value) : '';
+    }
+
+    private function validDate(string $date): bool
+    {
+        if ($date === '') {
+            return true;
+        }
+
+        $parsed = DateTime::createFromFormat('!Y-m-d', $date);
+        $errors = DateTime::getLastErrors();
+
+        return $parsed !== false
+            && $parsed->format('Y-m-d') === $date
+            && (
+                $errors === false
+                || (
+                    $errors['warning_count'] === 0
+                    && $errors['error_count'] === 0
+                )
+            );
+    }
+
     public function index(): void
     {
         Authorization::requireRole(['admin', 'manager', 'technician']);
 
-        $keyword = trim($_GET['keyword'] ?? '');
+        $keyword = $_GET['keyword'] ?? '';
+        $keyword = is_string($keyword) ? trim($keyword) : '';
 
         $equipmentList = $keyword !== ''
             ? $this->model->search($keyword)
@@ -40,19 +71,14 @@ class EquipmentController
         require __DIR__ . '/../views/equipment_list.php';
     }
 
-    /**
-     * Thêm hoặc sửa thiết bị.
-     */
     public function form(): void
     {
         $this->authorizeManager();
 
-        $id = (int)($_GET['id'] ?? 0);
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        $id = $id !== false && $id !== null ? (int)$id : 0;
 
-        $equipment = $id > 0
-            ? $this->model->getById($id)
-            : null;
-
+        $equipment = $id > 0 ? $this->model->getById($id) : null;
         $rooms = $this->model->getRooms();
         $types = $this->model->getTypes();
         $error = '';
@@ -62,18 +88,17 @@ class EquipmentController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Kiểm tra CSRF trước khi xử lý dữ liệu.
             CSRF::verifyOrFail();
 
             $data = [
                 'room_id' => (int)($_POST['room_id'] ?? 0),
                 'equipment_type_id' => (int)($_POST['equipment_type_id'] ?? 0),
-                'equipment_code' => trim($_POST['equipment_code'] ?? ''),
-                'equipment_name' => trim($_POST['equipment_name'] ?? ''),
-                'brand' => trim($_POST['brand'] ?? ''),
-                'purchase_date' => trim($_POST['purchase_date'] ?? ''),
-                'status' => $_POST['status'] ?? 'available',
-                'description' => trim($_POST['description'] ?? '')
+                'equipment_code' => $this->postString('equipment_code'),
+                'equipment_name' => $this->postString('equipment_name'),
+                'brand' => $this->postString('brand'),
+                'purchase_date' => $this->postString('purchase_date'),
+                'status' => $this->postString('status'),
+                'description' => $this->postString('description')
             ];
 
             $allowedStatuses = [
@@ -86,47 +111,57 @@ class EquipmentController
             if ($id > 0 && $equipment === null) {
                 $error = 'Không tìm thấy thiết bị cần sửa.';
             } elseif (
-                $data['room_id'] <= 0 ||
-                $data['equipment_type_id'] <= 0 ||
-                $data['equipment_code'] === '' ||
-                $data['equipment_name'] === ''
+                $data['room_id'] <= 0
+                || $data['equipment_type_id'] <= 0
+                || $data['equipment_code'] === ''
+                || mb_strlen($data['equipment_code'], 'UTF-8') > 50
+                || $data['equipment_name'] === ''
+                || mb_strlen($data['equipment_name'], 'UTF-8') > 150
+                || mb_strlen($data['brand'], 'UTF-8') > 100
             ) {
-                $error = 'Vui lòng nhập đủ mã, tên, phòng và loại thiết bị.';
-            } elseif (
-                !in_array($data['status'], $allowedStatuses, true)
-            ) {
+                $error = 'Vui lòng nhập đúng mã, tên, phòng, loại và hãng thiết bị.';
+            } elseif (!in_array($data['status'], $allowedStatuses, true)) {
                 $error = 'Trạng thái thiết bị không hợp lệ.';
-            } elseif (
-                $data['purchase_date'] !== '' &&
-                !DateTime::createFromFormat('!Y-m-d', $data['purchase_date'])
-            ) {
+            } elseif (!$this->validDate($data['purchase_date'])) {
                 $error = 'Ngày mua thiết bị không hợp lệ.';
             } else {
                 try {
-                    if ($id > 0) {
-                        $this->model->update($id, $data);
-                    } else {
-                        $this->model->create($data);
+                    $userId = Authorization::userId();
+
+                    $success = $id > 0
+                        ? $this->model->update($id, $data, $userId)
+                        : $this->model->create($data, $userId);
+
+                    if ($success) {
+                        $this->redirect(
+                            'success',
+                            $id > 0
+                                ? 'Đã cập nhật thiết bị.'
+                                : 'Đã thêm thiết bị.'
+                        );
                     }
 
-                    header('Location: index.php?action=equipment');
-                    exit();
-
+                    $error = 'Không thể lưu thiết bị. Hãy kiểm tra phòng, loại thiết bị và trạng thái bảo trì.';
                 } catch (PDOException $e) {
                     error_log('Save equipment error: ' . $e->getMessage());
-                    $error = 'Không lưu được thiết bị. Hãy kiểm tra mã thiết bị và dữ liệu.';
+                    $error = $e->getCode() === '23000'
+                        ? 'Mã thiết bị đã tồn tại hoặc dữ liệu liên quan không hợp lệ.'
+                        : 'Có lỗi xảy ra khi lưu thiết bị.';
+                } catch (Throwable $e) {
+                    error_log('Save equipment error: ' . $e->getMessage());
+                    $error = 'Có lỗi xảy ra khi lưu thiết bị.';
                 }
             }
 
-            $equipment = $data;
+            $equipment = array_merge($equipment ?? [], $data);
+            if ($id > 0) {
+                $equipment['equipment_id'] = $id;
+            }
         }
 
         require __DIR__ . '/../views/equipment_form.php';
     }
 
-    /**
-     * Xóa thiết bị.
-     */
     public function delete(): void
     {
         $this->authorizeManager();
@@ -136,41 +171,27 @@ class EquipmentController
             exit('Phương thức yêu cầu không hợp lệ.');
         }
 
-        // Kiểm tra CSRF trước khi xóa.
         CSRF::verifyOrFail();
 
-        $id = (int)($_POST['id'] ?? 0);
+        $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT);
+        $id = $id !== false ? (int)$id : 0;
 
         if ($id <= 0) {
-            $_SESSION['flash'] = [
-                'type' => 'error',
-                'message' => 'Mã thiết bị không hợp lệ.'
-            ];
-
-            header('Location: index.php?action=equipment');
-            exit();
+            $this->redirect('error', 'Mã thiết bị không hợp lệ.');
         }
 
         try {
-            $success = $this->model->delete($id);
+            $success = $this->model->delete($id, Authorization::userId());
 
-            $_SESSION['flash'] = [
-                'type' => $success ? 'success' : 'error',
-                'message' => $success
-                    ? 'Đã xóa thiết bị.'
-                    : 'Không thể xóa thiết bị này.'
-            ];
-
-        } catch (PDOException $e) {
-            error_log('Delete equipment error: ' . $e->getMessage());
-
-            $_SESSION['flash'] = [
-                'type' => 'error',
-                'message' => 'Không thể xóa thiết bị vì đang có phiếu báo hỏng hoặc lịch sử bảo trì liên quan.'
-            ];
+            $this->redirect(
+                $success ? 'success' : 'error',
+                $success
+                    ? 'Đã chuyển thiết bị sang trạng thái ngừng sử dụng.'
+                    : 'Không thể ngừng sử dụng thiết bị. Thiết bị có thể đã ngừng sử dụng hoặc còn phiếu bảo trì chưa hoàn tất.'
+            );
+        } catch (Throwable $e) {
+            error_log('Equipment delete error: ' . $e->getMessage());
+            $this->redirect('error', 'Có lỗi xảy ra khi ngừng sử dụng thiết bị.');
         }
-
-        header('Location: index.php?action=equipment');
-        exit();
     }
 }

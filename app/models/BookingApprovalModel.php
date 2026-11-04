@@ -309,7 +309,6 @@ class BookingApprovalModel
             $history->execute([
                 'booking_id' => $bookingId,
                 'reviewer_id' => $reviewerId,
-                'action' => 'rejected',
                 'comment' => $comment
             ]);
 
