@@ -547,7 +547,7 @@ function approvalEscape($value): string
     </section>
 
     <footer class="footer">
-        © Smart Campus Management · Quản lý phòng thực hành và thiết bị
+        Quản lý phòng thực hành và thiết bị
     </footer>
 
 </main>

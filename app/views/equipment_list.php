@@ -24,135 +24,236 @@ unset($_SESSION['flash']);
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quản lý thiết bị</title>
+<title>Quản lý thiết bị - Smart Campus</title>
+<link rel="stylesheet" href="assets/css/style.css">
 
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f6f1e8;
-    color: #43352c;
-    margin: 0;
-    padding: 30px;
-}
+    .top-navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 32px;
+        background: #ffffff;
+        border-bottom: 1px solid #eef2f0;
+        margin-bottom: var(--space-md);
+    }
 
-.container {
-    max-width: 1200px;
-    margin: auto;
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    overflow-x: auto;
-}
+    .brand-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
 
-h1 {
-    color: #795548;
-}
+    .brand-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--primary-light);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-a, button {
-    display: inline-block;
-    padding: 9px 12px;
-    background: #795548;
-    color: white;
-    text-decoration: none;
-    border: 0;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-}
+    .brand-title {
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--primary-color);
+        margin: 0;
+        line-height: 1.2;
+    }
 
-.toolbar {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin: 18px 0;
-}
+    .brand-subtitle {
+        font-size: 11px;
+        color: var(--text-sub);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
 
-.search-form {
-    display: flex;
-    gap: 8px;
-    flex: 1;
-    min-width: 280px;
-}
+    .nav-back {
+        color: var(--text-main);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+    }
 
-.search-form input {
-    flex: 1;
-    min-width: 0;
-    padding: 10px;
-    border: 1px solid #d5c5b6;
-    border-radius: 5px;
-}
+    .nav-back:hover {
+        color: var(--primary-color);
+    }
 
-.clear {
-    background: #a1887f;
-}
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px 40px 20px;
+    }
 
-table {
-    width: 100%;
-    min-width: 900px;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
+    .page-header {
+        margin-bottom: var(--space-md);
+    }
 
-th, td {
-    padding: 11px;
-    border-bottom: 1px solid #e7ddd2;
-    text-align: left;
-}
+    .page-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 6px;
+    }
 
-th {
-    background: #eee4d8;
-}
+    .page-desc {
+        color: var(--text-sub);
+        font-size: 14px;
+        margin: 0;
+    }
 
-.actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
+    .filter-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
 
-.actions form {
-    margin: 0;
-}
+    .filter-form {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        max-width: 600px;
+    }
 
-.delete {
-    background: #a94442;
-}
+    .data-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
 
-.empty {
-    text-align: center;
-    padding: 20px;
-}
+    .data-card-header {
+        margin-bottom: 16px;
+    }
 
-.flash {
-    padding: 12px 15px;
-    margin: 15px 0;
-    border-radius: 6px;
-}
+    .data-card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 0 0 4px 0;
+    }
 
-.flash.success {
-    background: #e5f3e8;
-    color: #28643a;
-}
+    .data-card-subtitle {
+        font-size: 13px;
+        color: var(--text-sub);
+        margin: 0;
+    }
 
-.flash.error {
-    background: #fbe8e7;
-    color: #a12e2a;
-}
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
 
-.note {
-    color: #796b60;
-    font-size: 14px;
-}
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    th, td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f2f4f3;
+        text-align: left;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+
+    th {
+        background: #f8faf9;
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    tbody tr:hover {
+        background-color: #fbfdfc;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-available { background: #E2F3E7; color: #287A45; }
+    .status-maintenance { background: #FFF1D6; color: #986500; }
+    .status-broken { background: #FBE8E7; color: #A12E2A; }
+    .status-retired { background: #EEE8E4; color: #76665D; }
+
+    .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .actions form {
+        margin: 0;
+    }
+
+    .flash {
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .flash.success {
+        background: #E8F5EE;
+        color: #216B42;
+        border: 1px solid #C9E9D2;
+    }
+
+    .flash.error {
+        background: #FDF2F1;
+        color: var(--danger-color);
+        border: 1px solid #F2D0D0;
+    }
+
+    .footer-text {
+        text-align: center;
+        color: #9aa29e;
+        font-size: 12px;
+        margin-top: 40px;
+    }
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<!-- TOP NAVBAR -->
+<div class="top-navbar">
+    <div class="brand-logo">
+        <div class="brand-icon">🏫</div>
+        <div>
+            <h2 class="brand-title">Smart Campus</h2>
+            <p class="brand-subtitle">Quản lý phòng thực hành</p>
+        </div>
+    </div>
+    <a href="index.php?action=dashboard" class="nav-back">← Quay lại Dashboard</a>
+</div>
 
-    <h1>Quản lý thiết bị</h1>
+<div class="main-container">
 
-    <p>Theo dõi thiết bị theo phòng và loại thiết bị.</p>
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <h1 class="page-title">Quản lý thiết bị</h1>
+        <p class="page-desc">Theo dõi thông tin, tình trạng và phân bổ thiết bị phòng thực hành.</p>
+    </div>
 
     <?php if ($flash): ?>
         <div class="flash <?= equipmentEscape($flash['type'] ?? 'success') ?>">
@@ -160,159 +261,104 @@ th {
         </div>
     <?php endif; ?>
 
-    <div class="toolbar">
-
-        <form class="search-form" method="get" action="index.php">
-
+    <!-- FILTER CARD -->
+    <div class="filter-card">
+        <form class="filter-form" method="get" action="index.php">
             <input type="hidden" name="action" value="equipment">
-
             <input
                 type="text"
                 name="keyword"
-                placeholder="Tìm mã, tên, hãng, phòng hoặc loại thiết bị..."
+                class="form-control"
+                placeholder="Tìm mã, tên, hãng, phòng..."
                 value="<?= equipmentEscape($_GET['keyword'] ?? '') ?>"
             >
-
-            <button type="submit">Tìm kiếm</button>
-
+            <button class="btn btn-primary" type="submit">Tìm kiếm</button>
             <?php if (!empty($_GET['keyword'])): ?>
-                <a class="clear" href="index.php?action=equipment">
-                    Xóa tìm kiếm
-                </a>
+                <a class="btn btn-secondary" href="index.php?action=equipment">Xóa</a>
             <?php endif; ?>
-
         </form>
 
         <?php if ($canManage): ?>
-            <a href="index.php?action=equipment_form">
-                + Thêm thiết bị
-            </a>
+            <a class="btn btn-primary" href="index.php?action=equipment_form">+ Thêm thiết bị</a>
         <?php endif; ?>
-
-        <a href="index.php?action=dashboard">
-            Về trang chính
-        </a>
-
     </div>
 
-    <?php if (!$canManage): ?>
-        <p class="note">
-            Bạn đang ở chế độ xem danh sách thiết bị.
-        </p>
-    <?php endif; ?>
+    <!-- DATA TABLE CARD -->
+    <div class="data-card">
+        <div class="data-card-header">
+            <h3 class="data-card-title">Danh sách thiết bị</h3>
+            <p class="data-card-subtitle">Tổng số thiết bị: <?= count($equipmentList ?? []) ?></p>
+        </div>
 
-    <table>
-
-        <thead>
-            <tr>
-                <th>Mã thiết bị</th>
-                <th>Tên thiết bị</th>
-                <th>Loại</th>
-                <th>Phòng</th>
-                <th>Hãng sản xuất</th>
-                <th>Ngày mua</th>
-                <th>Trạng thái</th>
-
-                <?php if ($canManage): ?>
-                    <th>Thao tác</th>
-                <?php endif; ?>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            <?php if (empty($equipmentList)): ?>
-
-                <tr>
-                    <td colspan="<?= $canManage ? 8 : 7 ?>" class="empty">
-                        Không tìm thấy thiết bị phù hợp.
-                    </td>
-                </tr>
-
-            <?php else: ?>
-
-                <?php foreach ($equipmentList as $item): ?>
-
+        <div class="table-responsive">
+            <table>
+                <thead>
                     <tr>
-
-                        <td>
-                            <?= equipmentEscape($item['equipment_code'] ?? '') ?>
-                        </td>
-
-                        <td>
-                            <?= equipmentEscape($item['equipment_name'] ?? '') ?>
-                        </td>
-
-                        <td>
-                            <?= equipmentEscape($item['type_name'] ?? 'Chưa phân loại') ?>
-                        </td>
-
-                        <td>
-                            <?= equipmentEscape(
-                                ($item['room_code'] ?? '') .
-                                ' - ' .
-                                ($item['room_name'] ?? 'Chưa phân phòng')
-                            ) ?>
-                        </td>
-
-                        <td>
-                            <?= equipmentEscape($item['brand'] ?? '') ?>
-                        </td>
-
-                        <td>
-                            <?= equipmentEscape($item['purchase_date'] ?? '') ?>
-                        </td>
-
-                        <td>
-                            <?= equipmentEscape(
-                                $statusLabels[$item['status'] ?? '']
-                                ?? ($item['status'] ?? '')
-                            ) ?>
-                        </td>
-
+                        <th>Mã thiết bị</th>
+                        <th>Tên thiết bị</th>
+                        <th>Loại</th>
+                        <th>Phòng</th>
+                        <th>Hãng sản xuất</th>
+                        <th>Ngày mua</th>
+                        <th>Trạng thái</th>
                         <?php if ($canManage): ?>
-
-                            <td>
-                                <div class="actions">
-
-                                    <a href="index.php?action=equipment_form&id=<?= (int)$item['equipment_id'] ?>">
-                                        Sửa
-                                    </a>
-
-                                    <form
-                                        method="post"
-                                        action="index.php?action=equipment_delete"
-                                        onsubmit="return confirm('Bạn có chắc muốn ngừng sử dụng thiết bị này?')"
-                                    >
-
-                                        <input
-                                            type="hidden"
-                                            name="id"
-                                            value="<?= (int)$item['equipment_id'] ?>"
-                                        >
-
-                                        <?= CSRF::field() ?>
-
-                                        <button class="delete" type="submit">
-                                            Ngừng sử dụng
-                                        </button>
-
-                                    </form>
-
-                                </div>
-                            </td>
-
+                            <th>Thao tác</th>
                         <?php endif; ?>
-
                     </tr>
+                </thead>
 
-                <?php endforeach; ?>
+                <tbody>
+                <?php if (empty($equipmentList)): ?>
+                    <tr>
+                        <td colspan="<?= $canManage ? 8 : 7 ?>" style="text-align: center; padding: 24px; color: var(--text-sub);">
+                            Không tìm thấy thiết bị!
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($equipmentList as $item): ?>
+                        <?php 
+                            $status = $item['status'] ?? 'available';
+                            $statusClass = 'status-' . $status;
+                        ?>
+                        <tr>
+                            <td><strong><?= equipmentEscape($item['equipment_code'] ?? '') ?></strong></td>
+                            <td><?= equipmentEscape($item['equipment_name'] ?? '') ?></td>
+                            <td><?= equipmentEscape($item['type_name'] ?? 'Chưa phân loại') ?></td>
+                            <td>
+                                <?= equipmentEscape(
+                                    ($item['room_code'] ?? '') . ' - ' . ($item['room_name'] ?? 'Chưa phân phòng')
+                                ) ?>
+                            </td>
+                            <td><?= equipmentEscape($item['brand'] ?? '') ?></td>
+                            <td><?= equipmentEscape($item['purchase_date'] ?? '') ?></td>
+                            <td>
+                                <span class="status-badge <?= $statusClass ?>">
+                                    <?= equipmentEscape($statusLabels[$status] ?? $status) ?>
+                                </span>
+                            </td>
+                            <?php if ($canManage): ?>
+                                <td>
+                                    <div class="actions">
+                                        <a class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" href="index.php?action=equipment_form&id=<?= (int)$item['equipment_id'] ?>">Sửa</a>
+                                        <form method="post" action="index.php?action=equipment_delete" onsubmit="return confirm('Bạn có chắc muốn ngừng sử dụng thiết bị này?')">
+                                            <input type="hidden" name="id" value="<?= (int)$item['equipment_id'] ?>">
+                                            <?= CSRF::field() ?>
+                                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;" type="submit">Ngừng</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-            <?php endif; ?>
-
-        </tbody>
-
-    </table>
+    <div class="footer-text">
+        Quản lý phòng thực hành và thiết bị
+    </div>
 
 </div>
 
