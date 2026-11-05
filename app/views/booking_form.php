@@ -1,5 +1,5 @@
-
 <?php
+require_once __DIR__ . '/../core/CSRF.php';
 
 function bookingFormEscape($value): string
 {
@@ -7,273 +7,324 @@ function bookingFormEscape($value): string
 }
 
 $errors = $errors ?? [];
-$old = $old ?? ($_POST ?? []);
-$role = $role ?? 'teacher';
+$formData = $formData ?? [];
+$rooms = $rooms ?? [];
 
-$isManager = in_array($role, ['admin', 'manager'], true);
-
+$flash = $_SESSION['flash'] ?? null;
+unset($_SESSION['flash']);
 ?>
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đặt phòng thực hành</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Đặt phòng thực hành - Smart Campus</title>
     <link rel="stylesheet" href="assets/css/style.css">
 
     <style>
-        .form-hint {
-            color: #796b60;
+        .top-navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            background: #ffffff;
+            border-bottom: 1px solid #eef2f0;
+            margin-bottom: var(--space-md);
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--primary-light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .brand-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--primary-color);
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .brand-subtitle {
+            font-size: 11px;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+        }
+
+        .nav-back {
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .nav-back:hover {
+            color: var(--primary-color);
+        }
+
+        .main-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px 40px 20px;
+        }
+
+        .page-header {
+            margin-bottom: var(--space-md);
+        }
+
+        .page-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 6px;
+        }
+
+        .page-desc {
+            color: var(--text-sub);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .form-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 28px 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        .form-card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0 0 20px 0;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f2f4f3;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .form-note {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #f2f4f3;
+        }
+
+        .error-message {
+            color: var(--danger-color);
             font-size: 13px;
-            margin-top: 5px;
+            margin-top: 4px;
         }
 
-        .form-errors {
-            padding: 12px 18px;
-            margin-bottom: 18px;
-            border-radius: 6px;
-            background: #fbe8e7;
-            color: #a12e2a;
+        .flash {
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
         }
 
-        .form-errors ul {
-            margin-bottom: 0;
+        .flash.error {
+            background: #FDF2F1;
+            color: var(--danger-color);
+            border: 1px solid #F2D0D0;
+        }
+
+        .footer-text {
+            text-align: center;
+            color: #9aa29e;
+            font-size: 12px;
+            margin-top: 40px;
         }
     </style>
 </head>
 
 <body>
 
-<main class="page-container">
-
-    <header class="page-header">
+<!-- TOP NAVBAR -->
+<div class="top-navbar">
+    <div class="brand-logo">
+        <div class="brand-icon">📝</div>
         <div>
-            <p class="page-label">SMART CAMPUS</p>
-            <h1>Đặt phòng thực hành</h1>
-            <p class="page-description">
-                Điền thông tin để tạo lịch sử dụng phòng thực hành.
-            </p>
+            <h2 class="brand-title">Smart Campus</h2>
+            <p class="brand-subtitle">Đặt phòng thực hành</p>
         </div>
+    </div>
+    <a href="index.php?action=calendar" class="nav-back">← Quay lại lịch phòng</a>
+</div>
 
-        <a href="index.php?action=calendar" class="btn-secondary">
-            Quay lại lịch phòng
-        </a>
-    </header>
+<div class="main-container">
 
-    <section class="content-card">
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <h1 class="page-title">Đặt phòng thực hành</h1>
+        <p class="page-desc">Điền thông tin để tạo yêu cầu sử dụng phòng thực hành.</p>
+    </div>
 
-        <h2>Thông tin đặt phòng</h2>
+    <?php if ($flash): ?>
+        <div class="flash <?= bookingFormEscape($flash['type'] ?? 'error') ?>">
+            <?= bookingFormEscape($flash['message'] ?? '') ?>
+        </div>
+    <?php endif; ?>
 
-        <?php if (!empty($errors)): ?>
-            <div class="form-errors" role="alert">
-                <strong>Không thể tạo lịch:</strong>
-                <ul>
-                    <?php foreach ($errors as $error): ?>
-                        <li><?= bookingFormEscape($error) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-        <?php endif; ?>
+    <!-- FORM CARD -->
+    <div class="form-card">
+        <h3 class="form-card-title">Thông tin đặt phòng</h3>
 
         <form method="post" action="index.php?action=booking_store">
-
             <?= CSRF::field() ?>
 
-            <?php if ($isManager): ?>
-
-                <div class="form-group">
-                    <label for="booking_type">Hình thức đặt phòng</label>
-
-                    <select
-                        id="booking_type"
-                        name="booking_type"
-                        required
-                    >
-                        <option value="">-- Chọn hình thức --</option>
-
-                        <option
-                            value="on_behalf"
-                            <?= ($old['booking_type'] ?? '') === 'on_behalf' ? 'selected' : '' ?>
-                        >
-                            Đặt thay giảng viên
-                        </option>
-
-                        <option
-                            value="school_wide"
-                            <?= ($old['booking_type'] ?? '') === 'school_wide' ? 'selected' : '' ?>
-                        >
-                            Hoạt động chung của nhà trường
-                        </option>
-                    </select>
-
-                    <p class="form-hint">
-                        Lịch do Manager/Admin tạo sẽ được xác nhận tự động.
-                    </p>
-                </div>
-
-                <div
-                    class="form-group"
-                    id="teacher-selector"
-                    style="display: none;"
-                >
-                    <label for="teacher_id">Giảng viên sử dụng phòng</label>
-
-                    <select id="teacher_id" name="teacher_id">
-                        <option value="">-- Chọn giảng viên --</option>
-
-                        <?php foreach ($teachers as $teacher): ?>
-                            <option
-                                value="<?= (int)$teacher['user_id'] ?>"
-                                <?= (string)($old['teacher_id'] ?? '') ===
-                                    (string)$teacher['user_id'] ? 'selected' : '' ?>
-                            >
-                                <?= bookingFormEscape($teacher['full_name']) ?>
-                                <?php if (!empty($teacher['email'])): ?>
-                                    (<?= bookingFormEscape($teacher['email']) ?>)
-                                <?php endif; ?>
-                            </option>
-                        <?php endforeach; ?>
-
-                    </select>
-                </div>
-
-            <?php else: ?>
-
-                <div class="form-group">
-                    <label>Hình thức đặt phòng</label>
-                    <input type="text" value="Đặt phòng cá nhân" disabled>
-                    <p class="form-hint">
-                        Yêu cầu của giảng viên sẽ ở trạng thái chờ duyệt.
-                    </p>
-                </div>
-
-            <?php endif; ?>
-
+            <!-- Hình thức đặt phòng -->
             <div class="form-group">
-                <label for="room_id">Phòng thực hành</label>
+                <label>Hình thức đặt phòng</label>
+                <input type="text" class="form-control" value="Đặt phòng cá nhân" readonly style="background-color: #f8faf9;">
+                <p class="form-note">Yêu cầu của giảng viên sẽ ở trạng thái chờ duyệt bởi Quản lý/Admin.</p>
+            </div>
 
-                <select id="room_id" name="room_id" required>
+            <!-- Chọn phòng -->
+            <div class="form-group">
+                <label for="room_id">Phòng thực hành <span style="color: var(--danger-color);">*</span></label>
+                <select name="room_id" id="room_id" class="form-control" required>
                     <option value="">-- Chọn phòng --</option>
-
                     <?php foreach ($rooms as $room): ?>
-                        <option
-                            value="<?= (int)$room['room_id'] ?>"
-                            <?= (string)($old['room_id'] ?? '') ===
-                                (string)$room['room_id'] ? 'selected' : '' ?>
-                        >
-                            <?= bookingFormEscape(
-                                $room['room_code'] . ' - ' . $room['room_name']
-                            ) ?>
+                        <option value="<?= (int)$room['room_id'] ?>" <?= ((int)($formData['room_id'] ?? 0) === (int)$room['room_id']) ? 'selected' : '' ?>>
+                            <?= bookingFormEscape($room['room_code']) ?> - <?= bookingFormEscape($room['room_name']) ?> (Sức chứa: <?= (int)$room['capacity'] ?>)
                         </option>
                     <?php endforeach; ?>
-
                 </select>
+                <?php if (!empty($errors['room_id'])): ?>
+                    <p class="error-message"><?= bookingFormEscape($errors['room_id']) ?></p>
+                <?php endif; ?>
             </div>
 
+            <!-- Tên nội dung đặt phòng -->
             <div class="form-group">
-                <label for="title">Tên nội dung đặt phòng</label>
-
+                <label for="purpose">Tên nội dung đặt phòng <span style="color: var(--danger-color);">*</span></label>
                 <input
                     type="text"
-                    id="title"
-                    name="title"
-                    maxlength="200"
-                    placeholder="Ví dụ: Học thực hành PHP"
-                    value="<?= bookingFormEscape($old['title'] ?? '') ?>"
+                    name="purpose"
+                    id="purpose"
+                    class="form-control"
+                    placeholder="Ví dụ: Thực hành PHP, Ôn tập lập trình C#..."
+                    value="<?= bookingFormEscape($formData['purpose'] ?? '') ?>"
                     required
                 >
+                <?php if (!empty($errors['purpose'])): ?>
+                    <p class="error-message"><?= bookingFormEscape($errors['purpose']) ?></p>
+                <?php endif; ?>
             </div>
 
+            <!-- Ngày sử dụng -->
             <div class="form-group">
-                <label for="booking_date">Ngày sử dụng</label>
-
+                <label for="booking_date">Ngày sử dụng <span style="color: var(--danger-color);">*</span></label>
                 <input
                     type="date"
-                    id="booking_date"
                     name="booking_date"
-                    min="<?= date('Y-m-d') ?>"
-                    value="<?= bookingFormEscape($old['booking_date'] ?? '') ?>"
+                    id="booking_date"
+                    class="form-control"
+                    value="<?= bookingFormEscape($formData['booking_date'] ?? '') ?>"
                     required
                 >
+                <?php if (!empty($errors['booking_date'])): ?>
+                    <p class="error-message"><?= bookingFormEscape($errors['booking_date']) ?></p>
+                <?php endif; ?>
             </div>
 
+            <!-- Giờ bắt đầu & Giờ kết thúc -->
             <div class="form-row">
-
                 <div class="form-group">
-                    <label for="start_time">Giờ bắt đầu</label>
-
+                    <label for="start_time">Giờ bắt đầu <span style="color: var(--danger-color);">*</span></label>
                     <input
                         type="time"
-                        id="start_time"
                         name="start_time"
-                        value="<?= bookingFormEscape($old['start_time'] ?? '') ?>"
+                        id="start_time"
+                        class="form-control"
+                        value="<?= bookingFormEscape($formData['start_time'] ?? '') ?>"
                         required
                     >
+                    <?php if (!empty($errors['start_time'])): ?>
+                        <p class="error-message"><?= bookingFormEscape($errors['start_time']) ?></p>
+                    <?php endif; ?>
                 </div>
 
                 <div class="form-group">
-                    <label for="end_time">Giờ kết thúc</label>
-
+                    <label for="end_time">Giờ kết thúc <span style="color: var(--danger-color);">*</span></label>
                     <input
                         type="time"
-                        id="end_time"
                         name="end_time"
-                        value="<?= bookingFormEscape($old['end_time'] ?? '') ?>"
+                        id="end_time"
+                        class="form-control"
+                        value="<?= bookingFormEscape($formData['end_time'] ?? '') ?>"
                         required
                     >
+                    <?php if (!empty($errors['end_time'])): ?>
+                        <p class="error-message"><?= bookingFormEscape($errors['end_time']) ?></p>
+                    <?php endif; ?>
                 </div>
-
             </div>
 
+            <!-- Mục đích chi tiết -->
             <div class="form-group">
-                <label for="purpose">Mục đích sử dụng</label>
-
+                <label for="note">Mục đích sử dụng chi tiết</label>
                 <textarea
-                    id="purpose"
-                    name="purpose"
+                    name="note"
+                    id="note"
+                    class="form-control"
                     rows="4"
-                    placeholder="Nhập mục đích sử dụng phòng..."
-                    required
-                ><?= bookingFormEscape($old['purpose'] ?? '') ?></textarea>
+                    placeholder="Nhập chi tiết yêu cầu phần mềm, thiết bị hoặc ghi chú thêm..."
+                ><?= bookingFormEscape($formData['note'] ?? '') ?></textarea>
             </div>
 
+            <!-- Nút thao tác -->
             <div class="form-actions">
-                <button type="reset" class="btn-secondary">
-                    Nhập lại
-                </button>
-
-                <button type="submit" class="btn-primary">
-                    <?= $isManager ? 'Tạo lịch đặt phòng' : 'Gửi yêu cầu đặt phòng' ?>
-                </button>
+                <button type="reset" class="btn btn-secondary">Nhập lại</button>
+                <button type="submit" class="btn btn-primary">Gửi yêu cầu đặt phòng</button>
             </div>
-
         </form>
-    </section>
+    </div>
 
-</main>
+    <div class="footer-text">
+        © Smart Campus Management · Quản lý phòng thực hành và thiết bị
+    </div>
 
-<?php if ($isManager): ?>
-<script>
-    const bookingType = document.getElementById('booking_type');
-    const teacherSelector = document.getElementById('teacher-selector');
-    const teacherSelect = document.getElementById('teacher_id');
-
-    function updateTeacherSelector() {
-        const isOnBehalf = bookingType.value === 'on_behalf';
-
-        teacherSelector.style.display = isOnBehalf ? 'block' : 'none';
-        teacherSelect.required = isOnBehalf;
-
-        if (!isOnBehalf) {
-            teacherSelect.value = '';
-        }
-    }
-
-    bookingType.addEventListener('change', updateTeacherSelector);
-    updateTeacherSelector();
-</script>
-<?php endif; ?>
+</div>
 
 </body>
 </html>
