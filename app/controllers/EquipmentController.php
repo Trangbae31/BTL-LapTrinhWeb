@@ -59,13 +59,18 @@ class EquipmentController
     {
         Authorization::requireRole(['admin', 'manager', 'technician']);
 
-        $keyword = $_GET['keyword'] ?? '';
-        $keyword = is_string($keyword) ? trim($keyword) : '';
+        $filters = [
+            'keyword' => is_string($_GET['keyword'] ?? '') ? trim($_GET['keyword']) : '',
+            'room_id' => (int)($_GET['room_id'] ?? 0),
+            'equipment_type_id' => (int)($_GET['equipment_type_id'] ?? 0),
+            'status' => is_string($_GET['status'] ?? '') ? trim($_GET['status']) : '',
+            'date_from' => is_string($_GET['date_from'] ?? '') ? trim($_GET['date_from']) : '',
+            'date_to' => is_string($_GET['date_to'] ?? '') ? trim($_GET['date_to']) : ''
+        ];
 
-        $equipmentList = $keyword !== ''
-            ? $this->model->search($keyword)
-            : $this->model->getAll();
-
+        $equipmentList = $this->model->getFiltered($filters);
+        $rooms = $this->model->getFilterRooms();
+        $types = $this->model->getTypes();
         $canManage = Authorization::hasAnyRole(['admin', 'manager']);
 
         require __DIR__ . '/../views/equipment_list.php';
@@ -194,4 +199,108 @@ class EquipmentController
             $this->redirect('error', 'Có lỗi xảy ra khi ngừng sử dụng thiết bị.');
         }
     }
+
+    private function redirectType(string $type, string $message): void
+    {
+        $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+        header('Location: index.php?action=equipment_type');
+        exit();
+    }
+
+    /**
+     * Quản lý loại thiết bị thuộc module Quản lý phòng và thiết bị.
+     * Chỉ Admin và Manager được xem/thao tác.
+     */
+    public function typeIndex(): void
+    {
+        $this->authorizeManager();
+        $equipmentTypes = $this->model->getEquipmentTypes();
+        $editId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        $editType = ($editId && $editId > 0) ? $this->model->getTypeById((int)$editId) : null;
+        $flash = $_SESSION['flash'] ?? null;
+        unset($_SESSION['flash']);
+        require __DIR__ . '/../views/equipment_type.php';
+    }
+
+    public function typeStore(): void
+    {
+        $this->authorizeManager();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            exit('Phương thức yêu cầu không hợp lệ.');
+        }
+        CSRF::verifyOrFail();
+
+        $name = $this->postString('type_name');
+        $description = $this->postString('description');
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 100) {
+            $this->redirectType('error', 'Tên loại thiết bị không được để trống và tối đa 100 ký tự.');
+        }
+
+        try {
+            $this->model->createType($name, $description);
+            $this->redirectType('success', 'Đã thêm loại thiết bị.');
+        } catch (PDOException $e) {
+            error_log('Create equipment type error: ' . $e->getMessage());
+            $this->redirectType('error', $e->getCode() === '23000'
+                ? 'Tên loại thiết bị đã tồn tại.'
+                : 'Không thể thêm loại thiết bị.');
+        }
+    }
+
+    public function typeUpdate(): void
+    {
+        $this->authorizeManager();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            exit('Phương thức yêu cầu không hợp lệ.');
+        }
+        CSRF::verifyOrFail();
+
+        $id = filter_var($_POST['equipment_type_id'] ?? null, FILTER_VALIDATE_INT);
+        $name = $this->postString('type_name');
+        $description = $this->postString('description');
+        if (!$id || $id <= 0 || $name === '' || mb_strlen($name, 'UTF-8') > 100) {
+            $this->redirectType('error', 'Thông tin loại thiết bị không hợp lệ.');
+        }
+
+        try {
+            $this->model->updateType((int)$id, $name, $description);
+            $this->redirectType('success', 'Đã cập nhật loại thiết bị.');
+        } catch (PDOException $e) {
+            error_log('Update equipment type error: ' . $e->getMessage());
+            $this->redirectType('error', $e->getCode() === '23000'
+                ? 'Tên loại thiết bị đã được sử dụng.'
+                : 'Không thể cập nhật loại thiết bị.');
+        }
+    }
+
+    public function typeDelete(): void
+    {
+        $this->authorizeManager();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            exit('Phương thức yêu cầu không hợp lệ.');
+        }
+        CSRF::verifyOrFail();
+
+        $id = filter_var($_POST['equipment_type_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$id || $id <= 0) {
+            $this->redirectType('error', 'Mã loại thiết bị không hợp lệ.');
+        }
+
+        try {
+            $success = $this->model->deleteType((int)$id);
+            $this->redirectType(
+                $success ? 'success' : 'error',
+                $success
+                    ? 'Đã xóa loại thiết bị.'
+                    : 'Không thể xóa loại này vì không tồn tại hoặc đang được thiết bị sử dụng.'
+            );
+        } catch (Throwable $e) {
+            error_log('Delete equipment type error: ' . $e->getMessage());
+            $this->redirectType('error', 'Có lỗi xảy ra khi xóa loại thiết bị.');
+        }
+    }
+
 }

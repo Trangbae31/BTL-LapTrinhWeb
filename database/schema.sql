@@ -307,7 +307,26 @@ CREATE TABLE IF NOT EXISTS maintenance_reports (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 13. MAINTENANCE_HISTORY: LICH SU XU LY BAO TRI
+-- 13. MAINTENANCE_REPORT_IMAGES: HINH ANH PHIEU BAO HONG
+-- =====================================================
+CREATE TABLE IF NOT EXISTS maintenance_report_images (
+    image_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    report_id INT UNSIGNED NOT NULL,
+    image_path VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_report_images_report
+        FOREIGN KEY (report_id)
+        REFERENCES maintenance_reports(report_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+
+    INDEX idx_report_images_report (report_id)
+) ENGINE=InnoDB;
+
+-- =====================================================
+-- 14. MAINTENANCE_HISTORY: LICH SU XU LY BAO TRI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS maintenance_history (
     history_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

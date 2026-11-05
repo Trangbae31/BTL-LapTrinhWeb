@@ -1,35 +1,36 @@
 USE ql_phong_thuc_hanh;
+SET NAMES utf8mb4;
 
 -- =====================================================
--- 1. VAI TRO
+-- 1. VAI TRÒ
 -- =====================================================
 INSERT INTO roles (role_name, description)
 VALUES
-('admin', 'Quan tri he thong'),
-('manager', 'Quan ly phong va thiet bi'),
-('teacher', 'Giang vien dat phong thuc hanh'),
-('technician', 'Nhan vien ky thuat va bao tri')
+('admin', 'Quản trị hệ thống'),
+('manager', 'Quản lý phòng và thiết bị'),
+('teacher', 'Giảng viên đặt phòng thực hành'),
+('technician', 'Nhân viên kỹ thuật và bảo trì')
 ON DUPLICATE KEY UPDATE
     description = VALUES(description);
 
 -- =====================================================
--- 2. TAI KHOAN DEMO
--- Mat khau chung: Admin@123456
--- Hash duoc tao bang PHP password_hash()
+-- 2. TÀI KHOẢN DEMO
+-- Mật khẩu chung: Admin@123456
+-- Hash được tạo bằng PHP password_hash()
 -- =====================================================
 INSERT INTO users (full_name, email, password_hash, status)
 VALUES
-('Quan tri he thong', 'admin.sample@example.com',
+('Quản trị hệ thống', 'admin.sample@example.com',
  '$2y$10$xFrXoBqAZnF4PAv6R3QLhuUPIGmkHi5wjnGpmnWld1O7FTnYl27bq', 'active'),
-('Nguyen Thu Trang', 'thutrang.sample@example.com',
+('Nguyễn Thu Trang', 'thutrang.sample@example.com',
  '$2y$10$xFrXoBqAZnF4PAv6R3QLhuUPIGmkHi5wjnGpmnWld1O7FTnYl27bq', 'active'),
-('Phuong Thao', 'phuongthao.sample@example.com',
+('Phương Thảo', 'phuongthao.sample@example.com',
  '$2y$10$xFrXoBqAZnF4PAv6R3QLhuUPIGmkHi5wjnGpmnWld1O7FTnYl27bq', 'active'),
-('Dieu Thanh', 'dieuthanh.sample@example.com',
+('Diệu Thanh', 'dieuthanh.sample@example.com',
  '$2y$10$xFrXoBqAZnF4PAv6R3QLhuUPIGmkHi5wjnGpmnWld1O7FTnYl27bq', 'active'),
-('Ngo Nam Khanh', 'namkhanh.sample@example.com',
+('Ngô Nam Khánh', 'namkhanh.sample@example.com',
  '$2y$10$xFrXoBqAZnF4PAv6R3QLhuUPIGmkHi5wjnGpmnWld1O7FTnYl27bq', 'active'),
-('Hoang Mai Lan', 'mailan.sample@example.com',
+('Hoàng Mai Lan', 'mailan.sample@example.com',
  '$2y$10$xFrXoBqAZnF4PAv6R3QLhuUPIGmkHi5wjnGpmnWld1O7FTnYl27bq', 'inactive')
 ON DUPLICATE KEY UPDATE
     full_name = VALUES(full_name),
@@ -37,7 +38,7 @@ ON DUPLICATE KEY UPDATE
     status = VALUES(status);
 
 -- =====================================================
--- 3. GAN VAI TRO
+-- 3. GÁN VAI TRÒ
 -- =====================================================
 INSERT IGNORE INTO user_roles (user_id, role_id)
 SELECT u.user_id, r.role_id
@@ -52,7 +53,7 @@ WHERE
     OR (u.email = 'mailan.sample@example.com' AND r.role_name = 'teacher');
 
 -- =====================================================
--- 4. TOA NHA
+-- 4. TÒA NHÀ
 -- =====================================================
 INSERT INTO buildings (building_name, address, description, status)
 SELECT
@@ -62,17 +63,17 @@ SELECT
     'active'
 FROM (
     SELECT
-        'Toa nha A' AS building_name,
-        'Co so 1 - Ha Noi' AS address,
-        'Khu phong thuc hanh may tinh' AS description
+        'Tòa nhà A' AS building_name,
+        'Cơ sở 1 - Hà Nội' AS address,
+        'Khu phòng thực hành máy tính' AS description
     UNION ALL SELECT
-        'Toa nha B',
-        'Co so 1 - Ha Noi',
-        'Khu thuc hanh mang va phan cung'
+        'Tòa nhà B',
+        'Cơ sở 1 - Hà Nội',
+        'Khu thực hành mạng và phần cứng'
     UNION ALL SELECT
-        'Toa nha C',
-        'Co so 2 - Ha Noi',
-        'Khu thuc hanh da nang'
+        'Tòa nhà C',
+        'Cơ sở 2 - Hà Nội',
+        'Khu thực hành đa năng'
 ) AS danh_sach_toa_nha
 WHERE NOT EXISTS (
     SELECT 1
@@ -81,7 +82,7 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 5. PHONG THUC HANH
+-- 5. PHÒNG THỰC HÀNH
 -- =====================================================
 INSERT INTO rooms (
     building_id, room_code, room_name, capacity,
@@ -98,27 +99,27 @@ SELECT
 FROM (
     SELECT
         'A101' AS room_code,
-        'Phong may tinh A101' AS room_name,
+        'Phòng máy tính A101' AS room_name,
         40 AS capacity,
-        'Tang 1' AS location,
-        'Phong thuc hanh lap trinh' AS description,
+        'Tầng 1' AS location,
+        'Phòng thực hành lập trình' AS description,
         'active' AS status,
-        'Toa nha A' AS building_name
+        'Tòa nhà A' AS building_name
     UNION ALL SELECT
-        'A202', 'Phong thuc hanh A202', 30, 'Tang 2',
-        'Phong thuc hanh co may chieu', 'active', 'Toa nha A'
+        'A202', 'Phòng thực hành A202', 30, 'Tầng 2',
+        'Phòng thực hành có máy chiếu', 'active', 'Tòa nhà A'
     UNION ALL SELECT
-        'B105', 'Phong mang B105', 25, 'Tang 1',
-        'Phong thuc hanh mang may tinh', 'active', 'Toa nha B'
+        'B105', 'Phòng mạng B105', 25, 'Tầng 1',
+        'Phòng thực hành mạng máy tính', 'active', 'Tòa nhà B'
     UNION ALL SELECT
-        'B210', 'Phong phan cung B210', 20, 'Tang 2',
-        'Phong lap rap va sua chua may tinh', 'active', 'Toa nha B'
+        'B210', 'Phòng phần cứng B210', 20, 'Tầng 2',
+        'Phòng lắp ráp và sửa chữa máy tính', 'active', 'Tòa nhà B'
     UNION ALL SELECT
-        'C001', 'Phong da nang C001', 50, 'Tang 1',
-        'Phong hoc va hoi thao', 'active', 'Toa nha C'
+        'C001', 'Phòng đa năng C001', 50, 'Tầng 1',
+        'Phòng học và hội thảo', 'active', 'Tòa nhà C'
     UNION ALL SELECT
-        'C002', 'Phong du phong C002', 15, 'Tang 1',
-        'Phong nho danh cho nhom hoc tap', 'inactive', 'Toa nha C'
+        'C002', 'Phòng dự phòng C002', 15, 'Tầng 1',
+        'Phòng nhỏ dành cho nhóm học tập', 'inactive', 'Tòa nhà C'
 ) AS danh_sach_phong
 JOIN buildings AS b
     ON b.building_name = danh_sach_phong.building_name
@@ -129,20 +130,20 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 6. LOAI THIET BI
+-- 6. LOẠI THIẾT BỊ
 -- =====================================================
 INSERT INTO equipment_types (type_name, description)
 VALUES
-('May tinh', 'May tinh de ban hoac may tram'),
-('May chieu', 'Thiet bi trinh chieu'),
-('Thiet bi mang', 'Router, switch va thiet bi mang'),
-('Thiet bi ngoai vi', 'Ban phim, chuot va thiet bi ngoai vi'),
-('Thiet bi dien', 'Day nguon va thiet bi dien')
+('Máy tính', 'Máy tính để bàn hoặc máy trạm'),
+('Máy chiếu', 'Thiết bị trình chiếu'),
+('Thiết bị mạng', 'Router, switch và thiết bị mạng'),
+('Thiết bị ngoại vi', 'Bàn phím, chuột và thiết bị ngoại vi'),
+('Thiết bị điện', 'Dây nguồn và thiết bị điện')
 ON DUPLICATE KEY UPDATE
     description = VALUES(description);
 
 -- =====================================================
--- 7. THIET BI
+-- 7. THIẾT BỊ
 -- =====================================================
 INSERT INTO equipment (
     room_id, equipment_type_id, equipment_code, equipment_name,
@@ -160,49 +161,49 @@ SELECT
 FROM (
     SELECT
         'PC-A101-01' AS equipment_code,
-        'May tinh thuc hanh 01' AS equipment_name,
+        'Máy tính thực hành 01' AS equipment_name,
         'Dell' AS brand,
         '2023-08-15' AS purchase_date,
         'available' AS status,
-        'May tram cho sinh vien' AS description,
+        'Máy trạm cho sinh viên' AS description,
         'A101' AS room_code,
-        'May tinh' AS type_name
+        'Máy tính' AS type_name
     UNION ALL SELECT
-        'PC-A101-02', 'May tinh thuc hanh 02', 'HP',
-        '2023-08-15', 'available', 'May tram cho sinh vien',
-        'A101', 'May tinh'
+        'PC-A101-02', 'Máy tính thực hành 02', 'HP',
+        '2023-08-15', 'available', 'Máy trạm cho sinh viên',
+        'A101', 'Máy tính'
     UNION ALL SELECT
-        'PC-A101-03', 'May tinh thuc hanh 03', 'Dell',
-        '2022-09-01', 'broken', 'Khong khoi dong duoc',
-        'A101', 'May tinh'
+        'PC-A101-03', 'Máy tính thực hành 03', 'Dell',
+        '2022-09-01', 'broken', 'Không khởi động được',
+        'A101', 'Máy tính'
     UNION ALL SELECT
-        'PR-A202-01', 'May chieu A202', 'Epson',
-        '2022-05-20', 'available', 'May chieu chinh cua phong',
-        'A202', 'May chieu'
+        'PR-A202-01', 'Máy chiếu A202', 'Epson',
+        '2022-05-20', 'available', 'Máy chiếu chính của phòng',
+        'A202', 'Máy chiếu'
     UNION ALL SELECT
-        'PC-A202-01', 'May tinh giang vien A202', 'Lenovo',
-        '2024-01-10', 'available', 'May tinh dieu khien may chieu',
-        'A202', 'May tinh'
+        'PC-A202-01', 'Máy tính giảng viên A202', 'Lenovo',
+        '2024-01-10', 'available', 'Máy tính điều khiển máy chiếu',
+        'A202', 'Máy tính'
     UNION ALL SELECT
-        'SW-B105-01', 'Switch mang B105', 'Cisco',
-        '2021-11-12', 'maintenance', 'Dang kiem tra cong mang',
-        'B105', 'Thiet bi mang'
+        'SW-B105-01', 'Switch mạng B105', 'Cisco',
+        '2021-11-12', 'maintenance', 'Đang kiểm tra cổng mạng',
+        'B105', 'Thiết bị mạng'
     UNION ALL SELECT
-        'RT-B105-01', 'Router thuc hanh B105', 'TP-Link',
-        '2023-03-10', 'available', 'Router phuc vu bai thuc hanh',
-        'B105', 'Thiet bi mang'
+        'RT-B105-01', 'Router thực hành B105', 'TP-Link',
+        '2023-03-10', 'available', 'Router phục vụ bài thực hành',
+        'B105', 'Thiết bị mạng'
     UNION ALL SELECT
-        'PC-B210-01', 'May tinh ky thuat B210', 'Asus',
-        '2022-02-18', 'available', 'May tinh dung cho ky thuat vien',
-        'B210', 'May tinh'
+        'PC-B210-01', 'Máy tính kỹ thuật B210', 'Asus',
+        '2022-02-18', 'available', 'Máy tính dùng cho kỹ thuật viên',
+        'B210', 'Máy tính'
     UNION ALL SELECT
-        'KB-A101-01', 'Bo ban phim chuot A101', 'Logitech',
-        '2023-08-15', 'available', 'Bo ngoai vi may tinh',
-        'A101', 'Thiet bi ngoai vi'
+        'KB-A101-01', 'Bộ bàn phím chuột A101', 'Logitech',
+        '2023-08-15', 'available', 'Bộ ngoại vi máy tính',
+        'A101', 'Thiết bị ngoại vi'
     UNION ALL SELECT
-        'PR-C001-01', 'May chieu C001', 'BenQ',
-        '2020-07-30', 'retired', 'Da ngung su dung',
-        'C001', 'May chieu'
+        'PR-C001-01', 'Máy chiếu C001', 'BenQ',
+        '2020-07-30', 'retired', 'Đã ngừng sử dụng',
+        'C001', 'Máy chiếu'
 ) AS danh_sach_thiet_bi
 JOIN rooms AS r
     ON r.room_code = danh_sach_thiet_bi.room_code
@@ -215,10 +216,10 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 8. YEU CAU DAT PHONG
--- teacher tu dat: pending
--- manager dat thay giang vien / hoat dong toan truong: approved
--- Chi booking approved moi giu cho va chan trung lich.
+-- 8. YÊU CẦU ĐẶT PHÒNG
+-- Giảng viên tự đặt: pending
+-- Quản lý đặt thay giảng viên / hoạt động toàn trường: approved
+-- Chỉ booking approved mới giữ chỗ và chặn trùng lịch.
 -- =====================================================
 INSERT INTO bookings (
     user_id, created_by_user_id, booking_type, room_id,
@@ -241,36 +242,36 @@ FROM (
         'thutrang.sample@example.com' AS creator_email,
         'personal' AS booking_type,
         'A101' AS room_code,
-        'Thuc hanh CSDL - Nhom 1' AS title,
-        'Bai thuc hanh truy van SQL' AS purpose,
+        'Thực hành CSDL - Nhóm 1' AS title,
+        'Bài thực hành truy vấn SQL' AS purpose,
         '2026-11-06 08:00:00' AS start_time,
         '2026-11-06 10:00:00' AS end_time,
         'pending' AS status,
-        'Giang vien tu tao, dang cho quan ly duyet' AS note
+        'Giảng viên tự tạo, đang chờ quản lý duyệt' AS note
     UNION ALL SELECT
         'thutrang.sample@example.com', 'phuongthao.sample@example.com',
-        'on_behalf', 'A202', 'On tap lap trinh C#',
-        'Quan ly tao lich thay giang vien Nguyen Thu Trang',
+        'on_behalf', 'A202', 'Ôn tập lập trình C#',
+        'Quản lý tạo lịch thay giảng viên Nguyễn Thu Trang',
         '2026-11-06 09:00:00', '2026-11-06 11:00:00',
-        'approved', 'Quan ly tao thay giang vien, da duyet tu dong'
+        'approved', 'Quản lý tạo thay giảng viên, đã duyệt tự động'
     UNION ALL SELECT
         NULL, 'phuongthao.sample@example.com',
-        'school_wide', 'C001', 'Sinh hoat hoc thuat toan truong',
-        'Hoat dong chung cua nha truong',
+        'school_wide', 'C001', 'Sinh hoạt học thuật toàn trường',
+        'Hoạt động chung của nhà trường',
         '2026-11-07 08:00:00', '2026-11-07 11:00:00',
-        'approved', 'Quan ly tao lich hoat dong toan truong'
+        'approved', 'Quản lý tạo lịch hoạt động toàn trường'
     UNION ALL SELECT
         'thutrang.sample@example.com', 'thutrang.sample@example.com',
-        'personal', 'B105', 'Thuc hanh mang may tinh',
-        'Cau hinh router va switch',
+        'personal', 'B105', 'Thực hành mạng máy tính',
+        'Cấu hình router và switch',
         '2026-11-08 13:30:00', '2026-11-08 16:30:00',
-        'pending', 'Yeu cau ca nhan dang cho duyet'
+        'pending', 'Yêu cầu cá nhân đang chờ duyệt'
     UNION ALL SELECT
         'thutrang.sample@example.com', 'thutrang.sample@example.com',
-        'personal', 'B210', 'Lap rap may tinh',
-        'Thuc hanh lap rap phan cung',
+        'personal', 'B210', 'Lắp ráp máy tính',
+        'Thực hành lắp ráp phần cứng',
         '2026-11-09 13:00:00', '2026-11-09 15:00:00',
-        'approved', 'Booking ca nhan da duoc duyet'
+        'approved', 'Booking cá nhân đã được duyệt'
 ) AS d
 LEFT JOIN users owner
     ON owner.email = d.owner_email
@@ -287,7 +288,7 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 9. LICH SU DUYET DAT PHONG
+-- 9. LỊCH SỬ DUYỆT ĐẶT PHÒNG
 -- =====================================================
 INSERT INTO booking_approvals (
     booking_id, reviewer_id, action, comment, reviewed_at
@@ -300,22 +301,22 @@ SELECT
     d.reviewed_at
 FROM (
     SELECT
-        'On tap lap trinh C#' AS title,
+        'Ôn tập lập trình C#' AS title,
         '2026-11-06 09:00:00' AS start_time,
         'approved' AS action,
-        'Quan ly tao thay giang vien, lich da duoc xac nhan' AS comment,
+        'Quản lý tạo thay giảng viên, lịch đã được xác nhận' AS comment,
         '2026-11-04 09:00:00' AS reviewed_at
     UNION ALL SELECT
-        'Sinh hoat hoc thuat toan truong',
+        'Sinh hoạt học thuật toàn trường',
         '2026-11-07 08:00:00',
         'approved',
-        'Chap thuan hoat dong chung cua nha truong',
+        'Chấp thuận hoạt động chung của nhà trường',
         '2026-11-04 09:10:00'
     UNION ALL SELECT
-        'Lap rap may tinh',
+        'Lắp ráp máy tính',
         '2026-11-09 13:00:00',
         'approved',
-        'Phong va thoi gian phu hop',
+        'Phòng và thời gian phù hợp',
         '2026-11-04 09:20:00'
 ) AS d
 JOIN bookings b
@@ -332,8 +333,8 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 9A. YEU CAU HUY BOOKING DA DUOC DUYET
--- Booking van giu trang thai approved cho den khi quan ly xu ly.
+-- 9A. YÊU CẦU HỦY BOOKING ĐÃ ĐƯỢC DUYỆT
+-- Booking vẫn giữ trạng thái approved cho đến khi quản lý xử lý.
 -- =====================================================
 INSERT INTO booking_cancellation_requests (
     booking_id, requester_id, reason, status, requested_at
@@ -341,13 +342,13 @@ INSERT INTO booking_cancellation_requests (
 SELECT
     b.booking_id,
     requester.user_id,
-    'Giang vien co lich cong tac dot xuat, xin phep huy lich.',
+    'Giảng viên có lịch công tác đột xuất, xin phép hủy lịch.',
     'pending',
     '2026-11-04 10:00:00'
 FROM bookings b
 JOIN users requester
     ON requester.email = 'thutrang.sample@example.com'
-WHERE b.title = 'Lap rap may tinh'
+WHERE b.title = 'Lắp ráp máy tính'
   AND b.start_time = '2026-11-09 13:00:00'
   AND NOT EXISTS (
       SELECT 1
@@ -358,7 +359,7 @@ WHERE b.title = 'Lap rap may tinh'
   );
 
 -- =====================================================
--- 10. LICH SU THAY DOI THIET BI
+-- 10. LỊCH SỬ THAY ĐỔI THIẾT BỊ
 -- =====================================================
 INSERT INTO equipment_history (
     equipment_id, user_id, old_status, new_status,
@@ -376,16 +377,16 @@ FROM (
         'PC-A101-03' AS equipment_code,
         'available' AS old_status,
         'broken' AS new_status,
-        'Ghi nhan may khong khoi dong' AS change_note,
+        'Ghi nhận máy không khởi động' AS change_note,
         '2026-10-18 09:00:00' AS changed_at,
         'dieuthanh.sample@example.com' AS email
     UNION ALL SELECT
         'SW-B105-01', 'available', 'maintenance',
-        'Chuyen thiet bi sang trang thai bao tri',
+        'Chuyển thiết bị sang trạng thái bảo trì',
         '2026-10-19 14:00:00', 'dieuthanh.sample@example.com'
     UNION ALL SELECT
         'PR-C001-01', 'available', 'retired',
-        'Thiet bi het han su dung',
+        'Thiết bị hết hạn sử dụng',
         '2026-09-30 10:00:00', 'phuongthao.sample@example.com'
 ) AS danh_sach_thay_doi
 JOIN equipment AS e
@@ -400,7 +401,7 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 11. BAO HONG / BAO TRI
+-- 11. BÁO HỎNG / BẢO TRÌ
 -- =====================================================
 INSERT INTO maintenance_reports (
     equipment_id, reporter_id, assigned_to, title, description,
@@ -421,27 +422,27 @@ FROM (
         'PC-A101-03' AS equipment_code,
         'thutrang.sample@example.com' AS reporter_email,
         'dieuthanh.sample@example.com' AS technician_email,
-        'May tinh khong khoi dong' AS title,
-        'Nhan nut nguon nhung may khong len.' AS description,
+        'Máy tính không khởi động' AS title,
+        'Nhấn nút nguồn nhưng máy không lên.' AS description,
         'processing' AS status,
         '2026-10-18 09:05:00' AS reported_at,
         NULL AS resolved_at,
         NULL AS resolution_note
     UNION ALL SELECT
         'SW-B105-01', 'mailan.sample@example.com',
-        'dieuthanh.sample@example.com', 'Kiem tra switch mang',
-        'Mot so cong mang khong co ket noi.', 'processing',
+        'dieuthanh.sample@example.com', 'Kiểm tra switch mạng',
+        'Một số cổng mạng không có kết nối.', 'processing',
         '2026-10-19 14:05:00', NULL, NULL
     UNION ALL SELECT
         'PR-C001-01', 'phuongthao.sample@example.com',
-        'dieuthanh.sample@example.com', 'May chieu cu hong',
-        'May chieu khong con dap ung nhu cau su dung.', 'resolved',
+        'dieuthanh.sample@example.com', 'Máy chiếu cũ hỏng',
+        'Máy chiếu không còn đáp ứng nhu cầu sử dụng.', 'resolved',
         '2026-09-25 08:00:00', '2026-09-30 10:00:00',
-        'De xuat thanh ly thiet bi.'
+        'Đề xuất thanh lý thiết bị.'
     UNION ALL SELECT
         'PC-A101-02', 'namkhanh.sample@example.com',
-        'dieuthanh.sample@example.com', 'Bao duong dinh ky may tinh',
-        'Ve sinh va kiem tra may tram.', 'reported',
+        'dieuthanh.sample@example.com', 'Bảo dưỡng định kỳ máy tính',
+        'Vệ sinh và kiểm tra máy trạm.', 'reported',
         '2026-10-22 15:30:00', NULL, NULL
 ) AS danh_sach_bao_tri
 JOIN equipment AS e
@@ -458,7 +459,7 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 12. LICH SU XU LY BAO TRI
+-- 12. LỊCH SỬ XỬ LÝ BẢO TRÌ
 -- =====================================================
 INSERT INTO maintenance_history (
     report_id, user_id, old_status, new_status,
@@ -473,19 +474,19 @@ SELECT
     danh_sach_lich_su_bao_tri.changed_at
 FROM (
     SELECT
-        'May tinh khong khoi dong' AS title,
+        'Máy tính không khởi động' AS title,
         'reported' AS old_status,
         'processing' AS new_status,
-        'Ky thuat vien da tiep nhan bao hong' AS action_note,
+        'Kỹ thuật viên đã tiếp nhận báo hỏng' AS action_note,
         '2026-10-18 10:00:00' AS changed_at,
         'dieuthanh.sample@example.com' AS email
     UNION ALL SELECT
-        'Kiem tra switch mang', 'reported', 'processing',
-        'Dang kiem tra cac cong ket noi',
+        'Kiểm tra switch mạng', 'reported', 'processing',
+        'Đang kiểm tra các cổng kết nối',
         '2026-10-19 15:00:00', 'dieuthanh.sample@example.com'
     UNION ALL SELECT
-        'May chieu cu hong', 'processing', 'resolved',
-        'Da ket thuc kiem tra va de xuat thanh ly',
+        'Máy chiếu cũ hỏng', 'processing', 'resolved',
+        'Đã kết thúc kiểm tra và đề xuất thanh lý',
         '2026-09-30 10:00:00', 'dieuthanh.sample@example.com'
 ) AS danh_sach_lich_su_bao_tri
 JOIN maintenance_reports AS m
@@ -500,7 +501,7 @@ WHERE NOT EXISTS (
 );
 
 -- =====================================================
--- 13. KIEM TRA SO LUONG DU LIEU SAU KHI CHAY
+-- 13. KIỂM TRA SỐ LƯỢNG DỮ LIỆU SAU KHI CHẠY
 -- =====================================================
 SELECT 'roles' AS bang, COUNT(*) AS so_ban_ghi FROM roles
 UNION ALL SELECT 'users', COUNT(*) FROM users
@@ -517,7 +518,7 @@ UNION ALL SELECT 'maintenance_reports', COUNT(*) FROM maintenance_reports
 UNION ALL SELECT 'maintenance_history', COUNT(*) FROM maintenance_history;
 
 -- =====================================================
--- 14. KIEM TRA TAI KHOAN VA VAI TRO
+-- 14. KIỂM TRA TÀI KHOẢN VÀ VAI TRÒ
 -- =====================================================
 SELECT
     u.user_id,

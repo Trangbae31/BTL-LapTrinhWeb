@@ -700,7 +700,7 @@ class BookingModel
 
             // Khóa lịch để tránh xử lý đồng thời.
             $sql = "
-                SELECT booking_id, user_id, status
+                SELECT booking_id, user_id, status, start_time
                 FROM bookings
                 WHERE booking_id = :booking_id
                 FOR UPDATE
@@ -714,6 +714,12 @@ class BookingModel
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$booking) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            // Không cho hủy khi lịch đã bắt đầu hoặc đã qua.
+            if (strtotime($booking['start_time']) <= time()) {
                 $this->db->rollBack();
                 return false;
             }

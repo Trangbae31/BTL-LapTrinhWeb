@@ -363,7 +363,11 @@ $equipment = $equipment ?? [];
                 phiếu báo hỏng chính xác.
             </div>
 
-            <form action="index.php?action=report_store" method="POST">
+            <form
+                action="index.php?action=report_store"
+                method="POST"
+                enctype="multipart/form-data"
+            >
                 <?= CSRF::field() ?>
 
                 <div class="form-group">
@@ -440,6 +444,24 @@ $equipment = $equipment ?? [];
 
                     <span class="hint">
                         Mô tả cụ thể sẽ giúp việc kiểm tra và bảo trì thuận tiện hơn.
+                    </span>
+                </div>
+
+                <div class="form-group">
+                    <label for="images">Hình ảnh thiết bị bị lỗi</label>
+
+                    <input
+                        class="form-control"
+                        type="file"
+                        id="images"
+                        name="images[]"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                    >
+
+                    <span class="hint">
+                        Có thể chọn tối đa 5 ảnh, mỗi ảnh không quá 5 MB.
+                        Chấp nhận định dạng JPG, PNG và WEBP.
                     </span>
                 </div>
 

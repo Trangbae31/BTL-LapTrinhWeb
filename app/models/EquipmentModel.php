@@ -87,6 +87,15 @@ class EquipmentModel
         ")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getFilterRooms(): array
+    {
+        return $this->db->query("
+            SELECT room_id, room_code, room_name
+            FROM rooms
+            ORDER BY room_code
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function getTypes(): array
     {
         return $this->db->query("
@@ -400,4 +409,248 @@ class EquipmentModel
             throw $e;
         }
     }
+
+    /**
+     * Lọc thiết bị theo từ khóa, phòng, loại, trạng thái và khoảng ngày mua.
+     */
+    public function getFiltered(array $filters = []): array
+    {
+        $sql = "
+            SELECT e.*, r.room_code, r.room_name, t.type_name
+            FROM equipment e
+            LEFT JOIN rooms r ON r.room_id = e.room_id
+            LEFT JOIN equipment_types t
+                ON t.equipment_type_id = e.equipment_type_id
+            WHERE 1 = 1
+        ";
+        $params = [];
+
+        $keyword = trim((string)($filters['keyword'] ?? ''));
+        if ($keyword !== '') {
+            $sql .= " AND (
+                e.equipment_code LIKE :code
+                OR e.equipment_name LIKE :name
+                OR e.brand LIKE :brand
+                OR r.room_code LIKE :room_code
+                OR r.room_name LIKE :room_name
+                OR t.type_name LIKE :type_name
+            )";
+            $like = '%' . $keyword . '%';
+            foreach (['code', 'name', 'brand', 'room_code', 'room_name', 'type_name'] as $key) {
+                $params[$key] = $like;
+            }
+        }
+
+        $roomId = (int)($filters['room_id'] ?? 0);
+        if ($roomId > 0) {
+            $sql .= " AND e.room_id = :room_id";
+            $params['room_id'] = $roomId;
+        }
+
+        $typeId = (int)($filters['equipment_type_id'] ?? 0);
+        if ($typeId > 0) {
+            $sql .= " AND e.equipment_type_id = :type_id";
+            $params['type_id'] = $typeId;
+        }
+
+        $status = (string)($filters['status'] ?? '');
+        if (in_array($status, self::STATUSES, true)) {
+            $sql .= " AND e.status = :status";
+            $params['status'] = $status;
+        }
+
+        $dateFrom = (string)($filters['date_from'] ?? '');
+        if ($dateFrom !== '' && $this->isValidDate($dateFrom)) {
+            $sql .= " AND e.purchase_date >= :date_from";
+            $params['date_from'] = $dateFrom;
+        }
+
+        $dateTo = (string)($filters['date_to'] ?? '');
+        if ($dateTo !== '' && $this->isValidDate($dateTo)) {
+            $sql .= " AND e.purchase_date <= :date_to";
+            $params['date_to'] = $dateTo;
+        }
+
+        $sql .= " ORDER BY e.equipment_id DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function isValidDate(string $date): bool
+    {
+        $parsed = DateTime::createFromFormat('!Y-m-d', $date);
+        $errors = DateTime::getLastErrors();
+        return $parsed !== false
+            && $parsed->format('Y-m-d') === $date
+            && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0));
+    }
+
+    public function getEquipmentTypes(): array
+    {
+        return $this->db->query("
+            SELECT
+                t.equipment_type_id,
+                t.type_name,
+                t.description,
+                t.created_at,
+                COUNT(e.equipment_id) AS equipment_count
+            FROM equipment_types t
+            LEFT JOIN equipment e
+                ON e.equipment_type_id = t.equipment_type_id
+            GROUP BY t.equipment_type_id, t.type_name, t.description, t.created_at
+            ORDER BY t.type_name ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getTypeById(int $typeId): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT equipment_type_id, type_name, description
+            FROM equipment_types
+            WHERE equipment_type_id = :id
+            LIMIT 1
+        ");
+        $stmt->execute(['id' => $typeId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function createType(string $typeName, string $description = ''): bool
+    {
+        $typeName = trim($typeName);
+        $description = trim($description);
+        if ($typeName === '' || mb_strlen($typeName, 'UTF-8') > 100) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare("
+            INSERT INTO equipment_types (type_name, description)
+            VALUES (:type_name, :description)
+        ");
+        return $stmt->execute([
+            'type_name' => $typeName,
+            'description' => $description !== '' ? $description : null
+        ]);
+    }
+
+    public function updateType(int $typeId, string $typeName, string $description = ''): bool
+    {
+        $typeName = trim($typeName);
+        $description = trim($description);
+        if ($typeId <= 0 || $typeName === '' || mb_strlen($typeName, 'UTF-8') > 100) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare("
+            UPDATE equipment_types
+            SET type_name = :type_name,
+                description = :description
+            WHERE equipment_type_id = :id
+        ");
+        $stmt->execute([
+            'type_name' => $typeName,
+            'description' => $description !== '' ? $description : null,
+            'id' => $typeId
+        ]);
+        if ($stmt->rowCount() > 0) return true;
+        return $this->getTypeById($typeId) !== null;
+    }
+
+    /**
+     * Chỉ xóa loại thiết bị chưa được thiết bị nào tham chiếu.
+     */
+    public function deleteType(int $typeId): bool
+    {
+        if ($typeId <= 0) {
+            return false;
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $lock = $this->db->prepare("
+                SELECT equipment_type_id
+                FROM equipment_types
+                WHERE equipment_type_id = :id
+                FOR UPDATE
+            ");
+            $lock->execute(['id' => $typeId]);
+            if (!$lock->fetchColumn()) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            $check = $this->db->prepare("
+                SELECT COUNT(*)
+                FROM equipment
+                WHERE equipment_type_id = :id
+            ");
+            $check->execute(['id' => $typeId]);
+            if ((int)$check->fetchColumn() > 0) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            $delete = $this->db->prepare("
+                DELETE FROM equipment_types
+                WHERE equipment_type_id = :id
+            ");
+            $delete->execute(['id' => $typeId]);
+            $success = $delete->rowCount() === 1;
+            $this->db->commit();
+            return $success;
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Trả về trạng thái phòng và lịch đã duyệt trong khoảng thời gian yêu cầu.
+     */
+    public function checkRoomAvailability(int $roomId, string $startTime, string $endTime): array
+    {
+        $roomStmt = $this->db->prepare("
+            SELECT room_id, room_code, room_name, status
+            FROM rooms
+            WHERE room_id = :room_id
+            LIMIT 1
+        ");
+        $roomStmt->execute(['room_id' => $roomId]);
+        $room = $roomStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$room) {
+            return ['exists' => false, 'available' => false, 'conflicts' => []];
+        }
+
+        if ($room['status'] !== 'active') {
+            return ['exists' => true, 'available' => false, 'conflicts' => [], 'reason' => 'inactive'];
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT booking_id, title, start_time, end_time, status
+            FROM bookings
+            WHERE room_id = :room_id
+              AND status = 'approved'
+              AND start_time < :end_time
+              AND end_time > :start_time
+            ORDER BY start_time ASC
+        ");
+        $stmt->execute([
+            'room_id' => $roomId,
+            'start_time' => $startTime,
+            'end_time' => $endTime
+        ]);
+        $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'exists' => true,
+            'available' => count($conflicts) === 0,
+            'room' => $room,
+            'conflicts' => $conflicts
+        ];
+    }
+
 }

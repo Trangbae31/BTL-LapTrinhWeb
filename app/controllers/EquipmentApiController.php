@@ -51,4 +51,75 @@ class EquipmentApiController
             ], JSON_UNESCAPED_UNICODE);
         }
     }
+
+    /**
+     * Endpoint JSON kiểm tra phòng còn trống trong khoảng thời gian.
+     * GET: room_id, start_time, end_time (datetime-local hoặc Y-m-d H:i:s).
+     */
+    public function roomAvailability(): void
+    {
+        Authorization::requireRole(['admin', 'manager', 'teacher']);
+
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+
+        $roomId = filter_var($_GET['room_id'] ?? null, FILTER_VALIDATE_INT);
+        $startRaw = $_GET['start_time'] ?? '';
+        $endRaw = $_GET['end_time'] ?? '';
+
+        $parse = static function ($value): ?DateTime {
+            if (!is_string($value) || trim($value) === '') return null;
+            $value = trim($value);
+            foreach (['!Y-m-d\TH:i', '!Y-m-d H:i:s', '!Y-m-d H:i'] as $format) {
+                $date = DateTime::createFromFormat($format, $value);
+                $errors = DateTime::getLastErrors();
+                if ($date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))) {
+                    return $date;
+                }
+            }
+            return null;
+        };
+
+        $start = $parse($startRaw);
+        $end = $parse($endRaw);
+        if (!$roomId || $roomId <= 0 || !$start || !$end || $start >= $end) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Vui lòng cung cấp phòng và khoảng thời gian hợp lệ.'
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $result = $this->model->checkRoomAvailability(
+                (int)$roomId,
+                $start->format('Y-m-d H:i:s'),
+                $end->format('Y-m-d H:i:s')
+            );
+
+            if (!$result['exists']) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Không tìm thấy phòng.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'available' => $result['available'],
+                'room' => $result['room'] ?? null,
+                'conflicts' => $result['conflicts'] ?? [],
+                'message' => $result['available']
+                    ? 'Phòng còn trống trong khoảng thời gian đã chọn.'
+                    : (($result['reason'] ?? '') === 'inactive'
+                        ? 'Phòng hiện không hoạt động.'
+                        : 'Phòng đã có lịch được duyệt trùng thời gian.')
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            error_log('Room availability API error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Không thể kiểm tra tình trạng phòng.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
 }

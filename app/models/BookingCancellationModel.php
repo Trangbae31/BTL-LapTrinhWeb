@@ -27,7 +27,7 @@ class BookingCancellationModel
             $this->db->beginTransaction();
 
             $stmt = $this->db->prepare("
-                SELECT booking_id, user_id, status
+                SELECT booking_id, user_id, status, start_time
                 FROM bookings
                 WHERE booking_id = :booking_id
                 FOR UPDATE
@@ -198,7 +198,7 @@ class BookingCancellationModel
 
             // Khóa lịch để tránh đồng thời bị hủy trực tiếp hoặc xử lý lần nữa.
             $bookingStmt = $this->db->prepare("
-                SELECT booking_id, user_id, status
+                SELECT booking_id, user_id, status, start_time
                 FROM bookings
                 WHERE booking_id = :booking_id
                 FOR UPDATE
@@ -222,7 +222,8 @@ class BookingCancellationModel
                 !$booking ||
                 !$request ||
                 $request['status'] !== 'pending' ||
-                $booking['status'] !== 'approved'
+                $booking['status'] !== 'approved' ||
+                strtotime($booking['start_time']) <= time()
             ) {
                 $this->db->rollBack();
                 return false;

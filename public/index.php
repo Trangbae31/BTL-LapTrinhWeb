@@ -1,6 +1,8 @@
 
 <?php
-
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
 date_default_timezone_set('Asia/Ho_Chi_Minh');
 
 require_once __DIR__ . '/../config/database.php';
@@ -24,6 +26,7 @@ require_once __DIR__ . '/../app/controllers/ReportController.php';
 require_once __DIR__ . '/../app/controllers/BookingController.php';
 require_once __DIR__ . '/../app/controllers/BookingApprovalController.php';
 require_once __DIR__ . '/../app/controllers/BookingCancellationController.php';
+require_once __DIR__ . '/../app/controllers/UserController.php';
 
 $action = $_GET['action'] ?? 'login';
 
@@ -122,6 +125,55 @@ switch ($action) {
         requireLoginForRoute();
         requirePostRequest();
         (new EquipmentController())->delete();
+        break;
+
+    // CRUD LOẠI THIẾT BỊ - thuộc module Quản lý phòng và thiết bị
+    case 'equipment_type':
+        requireLoginForRoute();
+        (new EquipmentController())->typeIndex();
+        break;
+
+    case 'equipment_type_store':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new EquipmentController())->typeStore();
+        break;
+
+    case 'equipment_type_update':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new EquipmentController())->typeUpdate();
+        break;
+
+    case 'equipment_type_delete':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new EquipmentController())->typeDelete();
+        break;
+
+    // API JSON kiểm tra phòng trống
+    case 'room_availability_api':
+    case 'room_availability':
+        requireLoginForRoute();
+        (new EquipmentApiController())->roomAvailability();
+        break;
+
+    // QUẢN LÝ TÀI KHOẢN - chỉ Admin
+    case 'users':
+        requireLoginForRoute();
+        (new UserController())->index();
+        break;
+
+    case 'user_store':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new UserController())->store();
+        break;
+
+    case 'user_update':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new UserController())->update();
         break;
 
 

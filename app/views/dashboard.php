@@ -311,7 +311,7 @@ if ($isAdmin) {
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 18px;
             margin-bottom: 32px;
         }
@@ -580,6 +580,24 @@ if ($isAdmin) {
                 </li>
             <?php endif; ?>
 
+            <?php if ($isManager): ?>
+                <li>
+                    <a href="index.php?action=equipment_type">
+                        <span class="menu-icon">🏷</span>
+                        Quản lý loại thiết bị
+                    </a>
+                </li>
+            <?php endif; ?>
+
+            <?php if ($isAdmin): ?>
+                <li>
+                    <a href="index.php?action=users">
+                        <span class="menu-icon">👥</span>
+                        Quản lý tài khoản
+                    </a>
+                </li>
+            <?php endif; ?>
+
             <?php if ($isManager || $isTeacher || $isTechnician): ?>
                 <li>
                     <a href="index.php?action=report_list">
@@ -655,32 +673,100 @@ if ($isAdmin) {
             </div>
 
             <section class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <div class="stat-icon icon-green">🏢</div>
-                        <span class="stat-tag">Phòng học</span>
+                <?php if ($isManager): ?>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-green">🏢</div><span class="stat-tag">Phòng</span></div>
+                        <div class="stat-number"><?= (int)($stats['active_rooms'] ?? 0) ?>/<?= (int)($stats['rooms'] ?? 0) ?></div>
+                        <div class="stat-label">Phòng đang hoạt động / tổng phòng</div>
                     </div>
-                    <div class="stat-number">Phòng</div>
-                    <div class="stat-label">Tra cứu phòng thực hành</div>
-                </div>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-blue">💻</div><span class="stat-tag">Thiết bị</span></div>
+                        <div class="stat-number"><?= (int)($stats['equipment'] ?? 0) ?></div>
+                        <div class="stat-label">Tổng số thiết bị</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-green">✓</div><span class="stat-tag">Sẵn sàng</span></div>
+                        <div class="stat-number"><?= (int)($stats['active_equipment'] ?? 0) ?></div>
+                        <div class="stat-label">Thiết bị đang hoạt động</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-orange">⚠</div><span class="stat-tag">Hỏng</span></div>
+                        <div class="stat-number"><?= (int)($stats['broken_equipment'] ?? 0) ?></div>
+                        <div class="stat-label">Thiết bị đang hỏng</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-orange">🛠</div><span class="stat-tag">Bảo trì</span></div>
+                        <div class="stat-number"><?= (int)($stats['maintenance_equipment'] ?? 0) ?></div>
+                        <div class="stat-label">Thiết bị đang bảo trì</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-blue">📅</div><span class="stat-tag">Booking</span></div>
+                        <div class="stat-number"><?= (int)($stats['pending_bookings'] ?? 0) ?></div>
+                        <div class="stat-label">Booking chờ duyệt</div>
+                    </div>
+                    <!-- THỐNG KÊ BẢO TRÌ -->
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <div class="stat-icon icon-blue">📋</div>
+                            <span class="stat-tag">Tổng phiếu</span>
+                        </div>
+                        <div class="stat-number">
+                            <?= (int)($stats['total_reports'] ?? 0) ?>
+                        </div>
+                        <div class="stat-label">Tổng số phiếu báo hỏng</div>
+                    </div>
 
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <div class="stat-icon icon-blue">💻</div>
-                        <span class="stat-tag">Thiết bị</span>
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <div class="stat-icon icon-orange">⏳</div>
+                            <span class="stat-tag">Chờ phân công</span>
+                        </div>
+                        <div class="stat-number">
+                            <?= (int)($stats['unassigned_reports'] ?? 0) ?>
+                        </div>
+                        <div class="stat-label">Số phiếu đang chờ phân công</div>
                     </div>
-                    <div class="stat-number">Thiết bị</div>
-                    <div class="stat-label">Theo dõi danh mục và trạng thái</div>
-                </div>
 
-                <div class="stat-card">
-                    <div class="stat-top">
-                        <div class="stat-icon icon-orange">🛠️</div>
-                        <span class="stat-tag">Bảo trì</span>
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <div class="stat-icon icon-blue">🛠️</div>
+                            <span class="stat-tag">Đang xử lý</span>
+                        </div>
+                        <div class="stat-number">
+                            <?= (int)($stats['processing_reports'] ?? 0) ?>
+                        </div>
+                        <div class="stat-label">Số phiếu đang xử lý</div>
                     </div>
-                    <div class="stat-number">Sự cố</div>
-                    <div class="stat-label">Tiếp nhận và xử lý báo hỏng</div>
-                </div>
+
+                    <div class="stat-card">
+                        <div class="stat-top">
+                            <div class="stat-icon icon-green">✅</div>
+                            <span class="stat-tag">Hoàn thành</span>
+                        </div>
+                        <div class="stat-number">
+                            <?= (int)($stats['resolved_reports'] ?? 0) ?>
+                        </div>
+                        <div class="stat-label">Số phiếu đã hoàn thành</div>
+                    </div>
+                <?php else: ?>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-green">🏢</div><span class="stat-tag">Phòng học</span></div>
+                        <div class="stat-number"><?= (int)($stats['active_rooms'] ?? 0) ?></div>
+                        <div class="stat-label">Phòng thực hành đang hoạt động</div>
+                    </div>
+                    <?php if (!$isTechnician): ?>
+                        <div class="stat-card">
+                            <div class="stat-top"><div class="stat-icon icon-blue">📅</div><span class="stat-tag">Đặt phòng</span></div>
+                            <div class="stat-number"><?= (int)($stats['my_bookings'] ?? 0) ?></div>
+                            <div class="stat-label">Lịch đặt phòng của bạn</div>
+                        </div>
+                    <?php endif; ?>
+                    <div class="stat-card">
+                        <div class="stat-top"><div class="stat-icon icon-orange">🛠️</div><span class="stat-tag">Bảo trì</span></div>
+                        <div class="stat-number"><?= (int)($stats['pending_reports'] ?? 0) ?></div>
+                        <div class="stat-label">Phiếu bảo trì đang xử lý</div>
+                    </div>
+                <?php endif; ?>
             </section>
 
             <div class="section-heading">
@@ -725,7 +811,18 @@ if ($isAdmin) {
                         <a href="index.php?action=equipment" class="feature-link">
                             Quản lý thiết bị <span>→</span>
                         </a>
+                        <a href="index.php?action=equipment_type" class="feature-link">
+                            Quản lý loại thiết bị <span>→</span>
+                        </a>
                     </article>
+                    <?php if ($isAdmin): ?>
+                        <article class="feature-card">
+                            <div class="feature-icon icon-blue">👥</div>
+                            <h3>Quản lý tài khoản</h3>
+                            <p>Tạo tài khoản, cập nhật thông tin, gán vai trò và khóa hoặc mở khóa người dùng.</p>
+                            <a href="index.php?action=users" class="feature-link">Quản lý tài khoản <span>→</span></a>
+                        </article>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if ($isTeacher): ?>

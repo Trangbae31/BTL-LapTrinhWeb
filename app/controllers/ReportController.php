@@ -134,6 +134,121 @@ class ReportController
         ]);
     }
 
+    private function uploadReportImages(PDO $db, int $reportId): array
+    {
+        if (
+            !isset($_FILES['images'])
+            || !is_array($_FILES['images']['name'] ?? null)
+        ) {
+            return [];
+        }
+
+        $files = $_FILES['images'];
+        $count = count($files['name']);
+
+        if ($count > 5) {
+            throw new RuntimeException('Bạn chỉ được tải lên tối đa 5 ảnh.');
+        }
+
+        $uploadDir = dirname(__DIR__, 2)
+            . '/public/uploads/maintenance_reports/';
+
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+            throw new RuntimeException('Không thể tạo thư mục lưu ảnh.');
+        }
+
+        $allowedTypes = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp'
+        ];
+
+        $savedPaths = [];
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+
+        try {
+            for ($i = 0; $i < $count; $i++) {
+                $error = $files['error'][$i] ?? UPLOAD_ERR_NO_FILE;
+
+                if ($error === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+
+                if ($error !== UPLOAD_ERR_OK) {
+                    throw new RuntimeException('Có ảnh tải lên không thành công.');
+                }
+
+                $tmpName = $files['tmp_name'][$i] ?? '';
+
+                if (!is_uploaded_file($tmpName)) {
+                    throw new RuntimeException('Tệp ảnh không hợp lệ.');
+                }
+
+                if (($files['size'][$i] ?? 0) > 5 * 1024 * 1024) {
+                    throw new RuntimeException('Mỗi ảnh không được vượt quá 5 MB.');
+                }
+
+                $mime = $finfo->file($tmpName);
+
+                if (!isset($allowedTypes[$mime])) {
+                    throw new RuntimeException(
+                        'Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP.'
+                    );
+                }
+
+                $extension = $allowedTypes[$mime];
+                $fileName = bin2hex(random_bytes(16)) . '.' . $extension;
+                $destination = $uploadDir . $fileName;
+
+                if (!move_uploaded_file($tmpName, $destination)) {
+                    throw new RuntimeException('Không thể lưu ảnh tải lên.');
+                }
+
+                $relativePath = 'uploads/maintenance_reports/' . $fileName;
+                $savedPaths[] = $relativePath;
+
+                $stmt = $db->prepare("
+                    INSERT INTO maintenance_report_images
+                        (report_id, image_path, original_name)
+                    VALUES
+                        (:report_id, :image_path, :original_name)
+                ");
+
+                $originalName = basename(
+                    (string)($files['name'][$i] ?? 'image')
+                );
+
+                $stmt->execute([
+                    'report_id' => $reportId,
+                    'image_path' => $relativePath,
+                    'original_name' => $originalName
+                ]);
+            }
+
+            return $savedPaths;
+        } catch (Throwable $e) {
+            foreach ($savedPaths as $path) {
+                $fullPath = dirname(__DIR__, 2) . '/public/' . $path;
+                if (is_file($fullPath)) {
+                    unlink($fullPath);
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    private function deleteUploadedFiles(array $paths): void
+    {
+        foreach ($paths as $path) {
+            $fullPath = dirname(__DIR__, 2) . '/public/' . $path;
+
+            if (is_file($fullPath)) {
+                unlink($fullPath);
+            }
+        }
+    }
+
     public function index(): void
     {
         $this->requireRoles(['admin', 'manager', 'teacher', 'technician']);
@@ -146,6 +261,40 @@ class ReportController
         $isManager = $this->isManager();
         $isTechnician = in_array('technician', $roles, true);
         $isTeacher = in_array('teacher', $roles, true);
+
+        // Nhận từ khóa tìm kiếm
+        $keyword = isset($_GET['keyword']) && is_string($_GET['keyword'])
+            ? trim($_GET['keyword'])
+            : '';
+
+        // Bỏ dấu # ở đầu mã phiếu: #1 -> 1
+        $searchKeyword = preg_replace('/^#\s*/u', '', $keyword);
+        $searchKeyword = trim($searchKeyword);
+
+        // Nhận trạng thái
+        $status = isset($_GET['status']) && is_string($_GET['status'])
+            ? trim($_GET['status'])
+            : '';
+
+        $allowedStatuses = [
+            'reported',
+            'processing',
+            'resolved',
+            'cancelled'
+        ];
+
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = '';
+        }
+
+        // Bộ lọc chỉ dành cho Manager/Admin
+        $reporterId = isset($_GET['reporter_id'])
+            ? (int)$_GET['reporter_id']
+            : 0;
+
+        $technicianId = isset($_GET['technician_id'])
+            ? (int)$_GET['technician_id']
+            : 0;
 
         $sql = "
             SELECT
@@ -164,23 +313,83 @@ class ReportController
                 reporter.full_name AS reporter_name,
                 technician.full_name AS technician_name
             FROM maintenance_reports mr
-            INNER JOIN equipment e ON e.equipment_id = mr.equipment_id
-            LEFT JOIN users reporter ON reporter.user_id = mr.reporter_id
-            LEFT JOIN users technician ON technician.user_id = mr.assigned_to
+            INNER JOIN equipment e
+                ON e.equipment_id = mr.equipment_id
+            LEFT JOIN users reporter
+                ON reporter.user_id = mr.reporter_id
+            LEFT JOIN users technician
+                ON technician.user_id = mr.assigned_to
         ";
 
+        $conditions = [];
         $params = [];
 
+        // Giữ giới hạn dữ liệu theo quyền
         if (!$isManager) {
             if ($isTechnician) {
-                $sql .= " WHERE mr.assigned_to = :user_id";
+                $conditions[] = "mr.assigned_to = :scope_user_id";
+                $params['scope_user_id'] = $userId;
             } elseif ($isTeacher) {
-                $sql .= " WHERE mr.reporter_id = :user_id";
+                $conditions[] = "mr.reporter_id = :scope_user_id";
+                $params['scope_user_id'] = $userId;
             } else {
                 http_response_code(403);
                 exit('Bạn không có quyền xem danh sách báo hỏng.');
             }
-            $params['user_id'] = $userId;
+        }
+
+        // Tìm kiếm
+        if ($searchKeyword !== '') {
+
+            // Nếu từ khóa chỉ chứa số (có thể đã bỏ dấu #)
+            // thì chỉ tìm chính xác mã phiếu
+            if (ctype_digit($searchKeyword)) {
+
+                $conditions[] = "mr.report_id = :exact_report_id";
+                $params['exact_report_id'] = (int)$searchKeyword;
+
+            } else {
+
+                // Nếu là chữ thì tìm trong thông tin thiết bị và nội dung báo hỏng
+                $conditions[] = "(
+                    e.equipment_code LIKE :search_code
+                    OR e.equipment_name LIKE :search_name
+                    OR mr.title LIKE :search_title
+                    OR mr.description LIKE :search_description
+                )";
+
+                $searchValue = '%' . $searchKeyword . '%';
+
+                $params['search_code'] = $searchValue;
+                $params['search_name'] = $searchValue;
+                $params['search_title'] = $searchValue;
+                $params['search_description'] = $searchValue;
+            }
+        }
+
+        // Lọc trạng thái
+        if ($status !== '') {
+            $conditions[] = "mr.status = :filter_status";
+            $params['filter_status'] = $status;
+        }
+
+        // Manager/Admin được lọc người báo và kỹ thuật viên
+        if ($isManager) {
+            if ($reporterId > 0) {
+                $conditions[] = "mr.reporter_id = :filter_reporter";
+                $params['filter_reporter'] = $reporterId;
+            }
+
+            if ($technicianId === -1) {
+                $conditions[] = "mr.assigned_to IS NULL";
+            } elseif ($technicianId > 0) {
+                $conditions[] = "mr.assigned_to = :filter_technician";
+                $params['filter_technician'] = $technicianId;
+            }
+        }
+
+        if (!empty($conditions)) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
         }
 
         $sql .= " ORDER BY mr.reported_at DESC";
@@ -189,7 +398,12 @@ class ReportController
         $stmt->execute($params);
         $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Danh sách kỹ thuật viên
         $technicians = [];
+
+        // Danh sách người báo hỏng
+        $reporters = [];
+
         if ($isManager) {
             $technicians = $db->query("
                 SELECT DISTINCT u.user_id, u.full_name
@@ -197,19 +411,34 @@ class ReportController
                 INNER JOIN user_roles ur ON ur.user_id = u.user_id
                 INNER JOIN roles r ON r.role_id = ur.role_id
                 WHERE r.role_name = 'technician'
-                  AND u.status = 'active'
+                AND u.status = 'active'
+                ORDER BY u.full_name
+            ")->fetchAll(PDO::FETCH_ASSOC);
+
+            $reporters = $db->query("
+                SELECT DISTINCT u.user_id, u.full_name
+                FROM users u
+                INNER JOIN maintenance_reports mr
+                    ON mr.reporter_id = u.user_id
                 ORDER BY u.full_name
             ")->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        // Admin có toàn bộ quyền nghiệp vụ của Manager.
-        // View nhận cờ Manager để hiển thị đầy đủ thao tác quản lý.
+        // Admin kế thừa quyền quản lý của Manager
         if ($isAdmin) {
             $isManager = true;
             $isAdmin = false;
         }
 
+        $filters = [
+            'keyword' => $keyword,
+            'status' => $status,
+            'reporter_id' => $reporterId,
+            'technician_id' => $technicianId
+        ];
+
         $currentUserId = $userId;
+
         require __DIR__ . '/../views/report_list.php';
     }
 
@@ -253,6 +482,8 @@ class ReportController
         ) {
             $this->fail('Vui lòng nhập đầy đủ và đúng thông tin báo hỏng.');
         }
+
+        $uploadedPaths = [];
 
         try {
             $db->beginTransaction();
@@ -300,6 +531,9 @@ class ReportController
 
             $reportId = (int)$db->lastInsertId();
 
+            // Lưu ảnh đính kèm của phiếu báo hỏng
+            $uploadedPaths = $this->uploadReportImages($db, $reportId);
+
             $history = $db->prepare("
                 INSERT INTO maintenance_history (
                     report_id, user_id, old_status, new_status, action_note
@@ -335,6 +569,10 @@ class ReportController
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
+
+            // Xóa các file đã tải lên nếu lưu phiếu thất bại
+            $this->deleteUploadedFiles($uploadedPaths);
+
             error_log('Report store error: ' . $e->getMessage());
             $this->fail($e instanceof RuntimeException
                 ? $e->getMessage()
@@ -447,12 +685,30 @@ class ReportController
         }
 
         $sql = "
-            SELECT mr.report_id, mr.reporter_id, mr.assigned_to,
-                   mr.title, mr.status, e.equipment_code, e.equipment_name
+            SELECT
+                mr.report_id,
+                mr.reporter_id,
+                mr.assigned_to,
+                mr.title,
+                mr.description,
+                mr.status,
+                mr.reported_at,
+                mr.resolved_at,
+                mr.resolution_note,
+                e.equipment_code,
+                e.equipment_name,
+                reporter.full_name AS reporter_name,
+                technician.full_name AS technician_name
             FROM maintenance_reports mr
-            INNER JOIN equipment e ON e.equipment_id = mr.equipment_id
+            INNER JOIN equipment e
+                ON e.equipment_id = mr.equipment_id
+            LEFT JOIN users reporter
+                ON reporter.user_id = mr.reporter_id
+            LEFT JOIN users technician
+                ON technician.user_id = mr.assigned_to
             WHERE mr.report_id = :report_id
         ";
+
         $params = ['report_id' => $reportId];
 
         if (!$this->isManager()) {
@@ -486,6 +742,17 @@ class ReportController
         ");
         $historyStmt->execute(['report_id' => $reportId]);
         $history = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Lấy toàn bộ ảnh đính kèm của phiếu
+        $imageStmt = $db->prepare("
+            SELECT image_id, image_path, original_name
+            FROM maintenance_report_images
+            WHERE report_id = :report_id
+            ORDER BY image_id ASC
+        ");
+
+        $imageStmt->execute(['report_id' => $reportId]);
+        $reportImages = $imageStmt->fetchAll(PDO::FETCH_ASSOC);
 
         require __DIR__ . '/../views/report_history.php';
     }

@@ -243,6 +243,93 @@ function reportEscape($value): string
             font-weight: 750;
         }
 
+        /* BỘ LỌC VÀ TÌM KIẾM PHIẾU */
+        .filter-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 22px;
+        }
+
+        .filter-title {
+            font-size: 15px;
+            font-weight: 750;
+            margin-bottom: 15px;
+            color: var(--green-dark);
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(150px, 1fr));
+            gap: 13px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 650;
+            color: #65766b;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            height: 40px;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 12px;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: 2px solid var(--green-light);
+            border-color: var(--green);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 9px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-reset {
+            background: #edf1ee;
+            color: #53645a;
+        }
+
+        .btn-reset:hover {
+            background: #e0e8e2;
+        }
+
+        .filter-result {
+            margin-top: 13px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .filter-grid {
+                grid-template-columns: repeat(2, minmax(140px, 1fr));
+            }
+        }
+
+        @media (max-width: 500px) {
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .table-card {
             background: white;
             border: 1px solid var(--border);
@@ -561,6 +648,165 @@ function reportEscape($value): string
         </div>
 
     <?php endif; ?>
+    <?php
+    $filters = $filters ?? [];
+
+    $filterKeyword = $filters['keyword'] ?? '';
+    $filterStatus = $filters['status'] ?? '';
+    $filterReporter = (int)($filters['reporter_id'] ?? 0);
+    $filterTechnician = (int)($filters['technician_id'] ?? 0);
+    ?>
+
+    <section class="filter-card">
+
+        <div class="filter-title">
+            🔎 Tìm kiếm và lọc phiếu báo hỏng
+        </div>
+
+        <form method="GET" action="index.php">
+
+            <input type="hidden" name="action" value="report_list">
+
+            <div class="filter-grid">
+
+                <!-- Tìm kiếm -->
+                <div class="filter-group">
+                    <label for="filter-keyword">
+                        Từ khóa tìm kiếm
+                    </label>
+
+                    <input
+                        type="text"
+                        name="keyword"
+                        placeholder="Mã phiếu, mã thiết bị, tên thiết bị..."
+                        value="<?= reportEscape($filterKeyword) ?>">
+                </div>
+
+                <!-- Trạng thái -->
+                <div class="filter-group">
+                    <label for="filter-status">
+                        Trạng thái phiếu
+                    </label>
+
+                    <select id="filter-status" name="status">
+
+                        <option value="">Tất cả trạng thái</option>
+
+                        <option value="reported"
+                            <?= $filterStatus === 'reported' ? 'selected' : '' ?>>
+                            Chờ xử lý
+                        </option>
+
+                        <option value="processing"
+                            <?= $filterStatus === 'processing' ? 'selected' : '' ?>>
+                            Đang xử lý
+                        </option>
+
+                        <option value="resolved"
+                            <?= $filterStatus === 'resolved' ? 'selected' : '' ?>>
+                            Đã hoàn thành
+                        </option>
+
+                        <option value="cancelled"
+                            <?= $filterStatus === 'cancelled' ? 'selected' : '' ?>>
+                            Đã hủy
+                        </option>
+
+                    </select>
+                </div>
+
+                <?php if ($isManager): ?>
+
+                    <!-- Lọc người báo -->
+                    <div class="filter-group">
+                        <label for="filter-reporter">
+                            Người báo hỏng
+                        </label>
+
+                        <select id="filter-reporter" name="reporter_id">
+
+                            <option value="0">
+                                Tất cả người báo
+                            </option>
+
+                            <?php foreach ($reporters as $reporter): ?>
+
+                                <option
+                                    value="<?= (int)$reporter['user_id'] ?>"
+                                    <?= $filterReporter === (int)$reporter['user_id']
+                                        ? 'selected'
+                                        : '' ?>>
+
+                                    <?= reportEscape($reporter['full_name']) ?>
+
+                                </option>
+
+                            <?php endforeach; ?>
+
+                        </select>
+                    </div>
+
+                    <!-- Lọc kỹ thuật viên -->
+                    <div class="filter-group">
+                        <label for="filter-technician">
+                            Kỹ thuật viên
+                        </label>
+
+                        <select id="filter-technician" name="technician_id">
+
+                            <option value="0">
+                                Tất cả kỹ thuật viên
+                            </option>
+
+                            <option value="-1"
+                                <?= $filterTechnician === -1 ? 'selected' : '' ?>>
+                                Chưa phân công
+                            </option>
+
+                            <?php foreach ($technicians as $technician): ?>
+
+                                <option
+                                    value="<?= (int)$technician['user_id'] ?>"
+                                    <?= $filterTechnician === (int)$technician['user_id']
+                                        ? 'selected'
+                                        : '' ?>>
+
+                                    <?= reportEscape($technician['full_name']) ?>
+
+                                </option>
+
+                            <?php endforeach; ?>
+
+                        </select>
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+            <div class="filter-actions">
+
+                <button type="submit" class="btn btn-primary">
+                    🔎 Tìm kiếm
+                </button>
+
+                <a
+                    href="index.php?action=report_list"
+                    class="btn btn-reset">
+                    ↺ Xóa bộ lọc
+                </a>
+
+            </div>
+
+            <div class="filter-result">
+                Đang hiển thị
+                <strong><?= count($reports) ?></strong>
+                phiếu phù hợp với điều kiện tìm kiếm.
+            </div>
+
+        </form>
+
+    </section>
 
     <section class="summary-card">
         <div class="summary-icon">📋</div>

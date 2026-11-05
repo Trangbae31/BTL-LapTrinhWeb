@@ -312,6 +312,8 @@ unset($_SESSION['flash']);
                 ><?= bookingFormEscape($formData['note'] ?? '') ?></textarea>
             </div>
 
+            <div id="roomAvailabilityMessage" class="form-group" aria-live="polite" style="display:none;padding:12px;border-radius:8px;background:#f4f7f5;"></div>
+
             <!-- Nút thao tác -->
             <div class="form-actions">
                 <button type="reset" class="btn btn-secondary">Nhập lại</button>
@@ -326,5 +328,53 @@ unset($_SESSION['flash']);
 
 </div>
 
+<script>
+(function () {
+    const room = document.getElementById('room_id');
+    const date = document.getElementById('booking_date');
+    const start = document.getElementById('start_time');
+    const end = document.getElementById('end_time');
+    const message = document.getElementById('roomAvailabilityMessage');
+    let requestId = 0;
+
+    async function checkRoom() {
+        if (!room || !date || !start || !end || !message) return;
+        if (!room.value || !date.value || !start.value || !end.value) {
+            message.style.display = 'none';
+            return;
+        }
+        const startValue = date.value + 'T' + start.value;
+        const endValue = date.value + 'T' + end.value;
+        if (endValue <= startValue) {
+            message.style.display = 'block';
+            message.textContent = 'Giờ kết thúc phải sau giờ bắt đầu.';
+            message.style.color = '#a12e2a';
+            return;
+        }
+        const currentRequest = ++requestId;
+        message.style.display = 'block';
+        message.style.color = '#66736c';
+        message.textContent = 'Đang kiểm tra tình trạng phòng...';
+        try {
+            const params = new URLSearchParams({room_id: room.value, start_time: startValue, end_time: endValue});
+            const response = await fetch('index.php?action=room_availability_api&' + params.toString(), {
+                headers: {'Accept': 'application/json'}
+            });
+            const data = await response.json();
+            if (currentRequest !== requestId) return;
+            message.textContent = data.message || 'Không thể kiểm tra phòng.';
+            message.style.color = data.success && data.available ? '#287a45' : '#a12e2a';
+        } catch (error) {
+            if (currentRequest !== requestId) return;
+            message.textContent = 'Không thể kết nối API kiểm tra phòng. Hệ thống vẫn kiểm tra lại khi gửi yêu cầu.';
+            message.style.color = '#986500';
+        }
+    }
+    [room, date, start, end].forEach(function (field) {
+        if (field) field.addEventListener('change', checkRoom);
+    });
+    checkRoom();
+})();
+</script>
 </body>
 </html>

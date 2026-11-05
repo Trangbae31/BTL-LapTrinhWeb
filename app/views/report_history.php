@@ -266,6 +266,60 @@ function historyEscape($value): string
                 grid-template-columns: 1fr;
             }
         }
+
+        .report-description {
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+        }
+
+        .report-description .info-value {
+            line-height: 1.8;
+            font-weight: 500;
+        }
+
+        .report-images {
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+        }
+
+        .report-images h3 {
+            font-size: 14px;
+            margin: 0 0 15px;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .report-image-link {
+            display: block;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #f5f7f5;
+        }
+
+        .report-image-link img {
+            display: block;
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            transition: transform .2s;
+        }
+
+        .report-image-link:hover img {
+            transform: scale(1.04);
+        }
+
+        .no-images {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
     </style>
 </head>
 
@@ -299,51 +353,120 @@ function historyEscape($value): string
         <section class="report-card">
             <h2>Thông tin phiếu báo hỏng</h2>
 
-            <div class="info-grid">
+        <div class="info-grid">
 
-                <div>
-                    <div class="info-label">Mã phiếu</div>
-                    <div class="info-value">
-                        #<?= (int)$reportInfo['report_id'] ?>
-                    </div>
+            <div>
+                <div class="info-label">Mã phiếu</div>
+                <div class="info-value">
+                    #<?= (int)$reportInfo['report_id'] ?>
                 </div>
-
-                <div>
-                    <div class="info-label">Trạng thái hiện tại</div>
-                    <div class="info-value">
-                        <?php
-                            $currentStatus = $reportInfo['status'] ?? '';
-                            $currentLabel = $statusLabels[$currentStatus] ?? $currentStatus;
-                        ?>
-
-                        <span class="status <?= historyEscape($currentStatus) ?>">
-                            <?= historyEscape($currentLabel) ?>
-                        </span>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="info-label">Mã thiết bị</div>
-                    <div class="info-value">
-                        <?= historyEscape($reportInfo['equipment_code'] ?? '') ?>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="info-label">Tên thiết bị</div>
-                    <div class="info-value">
-                        <?= historyEscape($reportInfo['equipment_name'] ?? '') ?>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="info-label">Tiêu đề phiếu</div>
-                    <div class="info-value">
-                        <?= historyEscape($reportInfo['title'] ?? '') ?>
-                    </div>
-                </div>
-
             </div>
+
+            <div>
+                <div class="info-label">Trạng thái hiện tại</div>
+                <div class="info-value">
+                    <?php
+                        $currentStatus = $reportInfo['status'] ?? '';
+                        $currentLabel = $statusLabels[$currentStatus] ?? $currentStatus;
+                    ?>
+                    <span class="status <?= historyEscape($currentStatus) ?>">
+                        <?= historyEscape($currentLabel) ?>
+                    </span>
+                </div>
+            </div>
+
+            <div>
+                <div class="info-label">Mã thiết bị</div>
+                <div class="info-value">
+                    <?= historyEscape($reportInfo['equipment_code'] ?? '') ?>
+                </div>
+            </div>
+
+            <div>
+                <div class="info-label">Tên thiết bị</div>
+                <div class="info-value">
+                    <?= historyEscape($reportInfo['equipment_name'] ?? '') ?>
+                </div>
+            </div>
+
+            <div>
+                <div class="info-label">Tiêu đề phiếu</div>
+                <div class="info-value">
+                    <?= historyEscape($reportInfo['title'] ?? '') ?>
+                </div>
+            </div>
+
+            <div>
+                <div class="info-label">Người báo hỏng</div>
+                <div class="info-value">
+                    <?= historyEscape($reportInfo['reporter_name'] ?? 'Không rõ') ?>
+                </div>
+            </div>
+
+            <div>
+                <div class="info-label">Người được phân công</div>
+                <div class="info-value">
+                    <?= historyEscape($reportInfo['technician_name'] ?? 'Chưa phân công') ?>
+                </div>
+            </div>
+
+            <div>
+                <div class="info-label">Ngày báo hỏng</div>
+                <div class="info-value">
+                    <?= historyEscape($reportInfo['reported_at'] ?? '') ?>
+                </div>
+            </div>
+
+            <?php if (!empty($reportInfo['resolved_at'])): ?>
+                <div>
+                    <div class="info-label">Ngày hoàn thành</div>
+                    <div class="info-value">
+                        <?= historyEscape($reportInfo['resolved_at']) ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+        </div>
+
+        <div class="report-description">
+            <div class="info-label">Mô tả sự cố</div>
+            <div class="info-value">
+                <?= nl2br(historyEscape($reportInfo['description'] ?? '')) ?>
+            </div>
+        </div>
+
+        <?php if (!empty($reportInfo['resolution_note'])): ?>
+            <div class="report-description">
+                <div class="info-label">Kết quả xử lý</div>
+                <div class="info-value">
+                    <?= nl2br(historyEscape($reportInfo['resolution_note'])) ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <div class="report-images">
+            <h3>Hình ảnh thiết bị bị lỗi</h3>
+
+            <?php if (!empty($reportImages)): ?>
+                <div class="image-grid">
+                    <?php foreach ($reportImages as $image): ?>
+                        <a
+                            href="<?= historyEscape($image['image_path']) ?>"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="report-image-link"
+                        >
+                            <img
+                                src="<?= historyEscape($image['image_path']) ?>"
+                                alt="<?= historyEscape($image['original_name']) ?>"
+                            >
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <p class="no-images">Phiếu này chưa có hình ảnh đính kèm.</p>
+            <?php endif; ?>
+        </div>
         </section>
     <?php endif; ?>
 

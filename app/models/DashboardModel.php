@@ -22,11 +22,18 @@ class DashboardModel
             'rooms' => 0,
             'active_rooms' => 0,
             'equipment' => 0,
+            'active_equipment' => 0,
             'available_equipment' => 0,
+            'broken_equipment' => 0,
+            'maintenance_equipment' => 0,
             'pending_bookings' => 0,
             'my_bookings' => 0,
             'maintenance_reports' => 0,
-            'pending_reports' => 0
+            'pending_reports' => 0,
+            'total_reports' => 0,
+            'unassigned_reports' => 0,
+            'processing_reports' => 0,
+            'resolved_reports' => 0
         ];
 
         if ($isManager) {
@@ -42,16 +49,50 @@ class DashboardModel
             $stats['available_equipment'] = (int)$this->db->query(
                 "SELECT COUNT(*) FROM equipment WHERE status = 'available'"
             )->fetchColumn();
+            $stats['active_equipment'] = $stats['available_equipment'];
+            $stats['broken_equipment'] = (int)$this->db->query(
+                "SELECT COUNT(*) FROM equipment WHERE status = 'broken'"
+            )->fetchColumn();
+            $stats['maintenance_equipment'] = (int)$this->db->query(
+                "SELECT COUNT(*) FROM equipment WHERE status = 'maintenance'"
+            )->fetchColumn();
             $stats['pending_bookings'] = (int)$this->db->query(
                 "SELECT COUNT(*) FROM bookings WHERE status = 'pending'"
             )->fetchColumn();
-            $stats['maintenance_reports'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM maintenance_reports"
-            )->fetchColumn();
-            $stats['pending_reports'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM maintenance_reports
-                 WHERE status IN ('reported', 'processing')"
-            )->fetchColumn();
+            $stmt = $this->db->query("
+                SELECT
+                    COUNT(*) AS total_reports,
+                    SUM(
+                        CASE
+                            WHEN status = 'reported' AND assigned_to IS NULL
+                            THEN 1 ELSE 0
+                        END
+                    ) AS unassigned_reports,
+                    SUM(
+                        CASE
+                            WHEN status = 'processing'
+                            THEN 1 ELSE 0
+                        END
+                    ) AS processing_reports,
+                    SUM(
+                        CASE
+                            WHEN status = 'resolved'
+                            THEN 1 ELSE 0
+                        END
+                    ) AS resolved_reports
+                FROM maintenance_reports
+            ");
+
+            $reportStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            $stats['total_reports'] = (int)($reportStats['total_reports'] ?? 0);
+            $stats['unassigned_reports'] = (int)($reportStats['unassigned_reports'] ?? 0);
+            $stats['processing_reports'] = (int)($reportStats['processing_reports'] ?? 0);
+            $stats['resolved_reports'] = (int)($reportStats['resolved_reports'] ?? 0);
+
+            // Giữ lại các biến thống kê cũ để không ảnh hưởng phần giao diện khác
+            $stats['maintenance_reports'] = $stats['total_reports'];
+            $stats['pending_reports'] = $stats['unassigned_reports'] + $stats['processing_reports'];
         } else {
             $stats['active_rooms'] = (int)$this->db->query(
                 "SELECT COUNT(*) FROM rooms WHERE status = 'active'"

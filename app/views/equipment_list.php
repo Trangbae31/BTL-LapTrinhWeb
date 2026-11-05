@@ -263,23 +263,50 @@ unset($_SESSION['flash']);
 
     <!-- FILTER CARD -->
     <div class="filter-card">
-        <form class="filter-form" method="get" action="index.php">
+        <form method="get" action="index.php" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;width:100%;">
             <input type="hidden" name="action" value="equipment">
-            <input
-                type="text"
-                name="keyword"
-                class="form-control"
-                placeholder="Tìm mã, tên, hãng, phòng..."
-                value="<?= equipmentEscape($_GET['keyword'] ?? '') ?>"
-            >
-            <button class="btn btn-primary" type="submit">Tìm kiếm</button>
-            <?php if (!empty($_GET['keyword'])): ?>
-                <a class="btn btn-secondary" href="index.php?action=equipment">Xóa</a>
-            <?php endif; ?>
+            <input type="text" name="keyword" class="form-control"
+                   placeholder="Tìm mã, tên, hãng..."
+                   value="<?= equipmentEscape($filters['keyword'] ?? '') ?>">
+            <select name="room_id" class="form-control">
+                <option value="0">Tất cả phòng</option>
+                <?php foreach (($rooms ?? []) as $room): ?>
+                    <option value="<?= (int)$room['room_id'] ?>" <?= (int)($filters['room_id'] ?? 0) === (int)$room['room_id'] ? 'selected' : '' ?>>
+                        <?= equipmentEscape($room['room_code'] . ' - ' . $room['room_name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <select name="equipment_type_id" class="form-control">
+                <option value="0">Tất cả loại</option>
+                <?php foreach (($types ?? []) as $type): ?>
+                    <option value="<?= (int)$type['equipment_type_id'] ?>" <?= (int)($filters['equipment_type_id'] ?? 0) === (int)$type['equipment_type_id'] ? 'selected' : '' ?>>
+                        <?= equipmentEscape($type['type_name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <select name="status" class="form-control">
+                <option value="">Tất cả trạng thái</option>
+                <?php foreach ($statusLabels as $value => $label): ?>
+                    <option value="<?= equipmentEscape($value) ?>" <?= ($filters['status'] ?? '') === $value ? 'selected' : '' ?>>
+                        <?= equipmentEscape($label) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <input type="date" name="date_from" class="form-control" title="Ngày mua từ"
+                   value="<?= equipmentEscape($filters['date_from'] ?? '') ?>">
+            <input type="date" name="date_to" class="form-control" title="Ngày mua đến"
+                   value="<?= equipmentEscape($filters['date_to'] ?? '') ?>">
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="btn btn-primary" type="submit">Lọc thiết bị</button>
+                <a class="btn btn-secondary" href="index.php?action=equipment">Xóa lọc</a>
+            </div>
         </form>
 
         <?php if ($canManage): ?>
-            <a class="btn btn-primary" href="index.php?action=equipment_form">+ Thêm thiết bị</a>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <a class="btn btn-primary" href="index.php?action=equipment_form">+ Thêm thiết bị</a>
+                <a class="btn btn-secondary" href="index.php?action=equipment_type">Quản lý loại thiết bị</a>
+            </div>
         <?php endif; ?>
     </div>
 
