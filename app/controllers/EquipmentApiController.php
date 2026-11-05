@@ -5,11 +5,45 @@ require_once __DIR__ . '/../core/Authorization.php';
 
 class EquipmentApiController
 {
-    private EquipmentModel $model;
+    private ?EquipmentModel $model = null;
 
-    public function __construct()
+    private function model(): EquipmentModel
     {
-        $this->model = new EquipmentModel();
+        if ($this->model === null) {
+            $this->model = new EquipmentModel();
+        }
+        return $this->model;
+    }
+
+    private function authorizeJson(): bool
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        if (!Authorization::isLoggedIn()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Vui lòng đăng nhập.'], JSON_UNESCAPED_UNICODE);
+            return false;
+        }
+        try {
+            $stmt = Database::connect()->prepare('SELECT status FROM users WHERE user_id = :id LIMIT 1');
+            $stmt->execute(['id' => Authorization::userId()]);
+            if ($stmt->fetchColumn() !== 'active') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Tài khoản không hoạt động.'], JSON_UNESCAPED_UNICODE);
+                return false;
+            }
+        } catch (Throwable $e) {
+            error_log('API authorization error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Không thể xác thực tài khoản.'], JSON_UNESCAPED_UNICODE);
+            return false;
+        }
+        if (!Authorization::hasAnyRole(['admin', 'manager', 'technician', 'teacher'])) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Bạn không có quyền truy cập API.'], JSON_UNESCAPED_UNICODE);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -17,20 +51,20 @@ class EquipmentApiController
      */
     public function index(): void
     {
-        Authorization::requireRole([
-            'admin',
-            'manager',
-            'technician'
-        ]);
-
-        header('Content-Type: application/json; charset=utf-8');
+        if (!$this->authorizeJson()) return;
+        if (!Authorization::hasAnyRole(['admin', 'manager', 'technician'])) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Bạn không có quyền truy cập API.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         try {
-            $keyword = trim($_GET['keyword'] ?? '');
+            $keywordRaw = $_GET['keyword'] ?? '';
+            $keyword = is_string($keywordRaw) ? trim($keywordRaw) : '';
 
             $equipmentList = $keyword !== ''
-                ? $this->model->search($keyword)
-                : $this->model->getAll();
+                ? $this->model()->search($keyword)
+                : $this->model()->getAll();
 
             http_response_code(200);
 
@@ -58,10 +92,12 @@ class EquipmentApiController
      */
     public function roomAvailability(): void
     {
-        Authorization::requireRole(['admin', 'manager', 'teacher']);
-
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
+        if (!$this->authorizeJson()) return;
+        if (!Authorization::hasAnyRole(['admin', 'manager', 'teacher'])) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Bạn không có quyền kiểm tra phòng.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         $roomId = filter_var($_GET['room_id'] ?? null, FILTER_VALIDATE_INT);
         $startRaw = $_GET['start_time'] ?? '';
@@ -92,7 +128,7 @@ class EquipmentApiController
         }
 
         try {
-            $result = $this->model->checkRoomAvailability(
+            $result = $this->model()->checkRoomAvailability(
                 (int)$roomId,
                 $start->format('Y-m-d H:i:s'),
                 $end->format('Y-m-d H:i:s')

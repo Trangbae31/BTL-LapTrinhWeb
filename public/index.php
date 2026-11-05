@@ -1,7 +1,9 @@
 
 <?php
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
+// Không hiển thị warning/stack trace ra giao diện; lỗi vẫn được ghi log PHP.
+$isDevelopment = (getenv('APP_ENV') ?: 'production') === 'development';
+ini_set('display_errors', $isDevelopment ? '1' : '0');
+ini_set('display_startup_errors', $isDevelopment ? '1' : '0');
 error_reporting(E_ALL);
 date_default_timezone_set('Asia/Ho_Chi_Minh');
 
@@ -27,6 +29,7 @@ require_once __DIR__ . '/../app/controllers/BookingController.php';
 require_once __DIR__ . '/../app/controllers/BookingApprovalController.php';
 require_once __DIR__ . '/../app/controllers/BookingCancellationController.php';
 require_once __DIR__ . '/../app/controllers/UserController.php';
+require_once __DIR__ . '/../app/controllers/NotificationController.php';
 
 $action = $_GET['action'] ?? 'login';
 
@@ -38,10 +41,7 @@ $authController = new AuthController();
 
 function requireLoginForRoute(): void
 {
-    if (!isset($_SESSION['user']['user_id'])) {
-        header('Location: index.php?action=login');
-        exit();
-    }
+    Authorization::requireLogin();
 }
 
 // ==========================================
@@ -67,6 +67,10 @@ switch ($action) {
         break;
 
     case 'logout':
+        requireLoginForRoute();
+        requirePostRequest();
+        require_once __DIR__ . '/../app/core/CSRF.php';
+        CSRF::verifyOrFail();
         $authController->logout();
         break;
 
@@ -112,8 +116,12 @@ switch ($action) {
         break;
 
     case 'equipment_api':
-        requireLoginForRoute();
         (new EquipmentApiController())->index();
+        break;
+
+    case 'equipment_detail':
+        requireLoginForRoute();
+        (new EquipmentController())->detail();
         break;
 
     case 'equipment_form':
@@ -154,8 +162,18 @@ switch ($action) {
     // API JSON kiểm tra phòng trống
     case 'room_availability_api':
     case 'room_availability':
-        requireLoginForRoute();
         (new EquipmentApiController())->roomAvailability();
+        break;
+
+    case 'notifications':
+        requireLoginForRoute();
+        (new NotificationController())->index();
+        break;
+
+    case 'notification_read':
+        requireLoginForRoute();
+        requirePostRequest();
+        (new NotificationController())->markRead();
         break;
 
     // QUẢN LÝ TÀI KHOẢN - chỉ Admin

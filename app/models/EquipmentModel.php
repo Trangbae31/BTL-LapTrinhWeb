@@ -21,7 +21,13 @@ class EquipmentModel
     public function getAll(): array
     {
         $sql = "
-            SELECT e.*, r.room_code, r.room_name, t.type_name
+            SELECT e.*,
+                   CASE
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'processing') THEN 'maintenance'
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'reported') THEN 'broken'
+                     ELSE e.status
+                   END AS availability_status,
+                   r.room_code, r.room_name, t.type_name
             FROM equipment e
             LEFT JOIN rooms r ON r.room_id = e.room_id
             LEFT JOIN equipment_types t
@@ -37,7 +43,13 @@ class EquipmentModel
         $like = '%' . trim($keyword) . '%';
 
         $stmt = $this->db->prepare("
-            SELECT e.*, r.room_code, r.room_name, t.type_name
+            SELECT e.*,
+                   CASE
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'processing') THEN 'maintenance'
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'reported') THEN 'broken'
+                     ELSE e.status
+                   END AS availability_status,
+                   r.room_code, r.room_name, t.type_name
             FROM equipment e
             LEFT JOIN rooms r ON r.room_id = e.room_id
             LEFT JOIN equipment_types t
@@ -73,6 +85,28 @@ class EquipmentModel
         ");
         $stmt->execute(['id' => $id]);
 
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function getDetailById(int $id): ?array
+    {
+        if ($id <= 0) return null;
+        $stmt = $this->db->prepare("
+            SELECT e.*,
+                   CASE
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'processing') THEN 'maintenance'
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'reported') THEN 'broken'
+                     ELSE e.status
+                   END AS availability_status,
+                   r.room_code, r.room_name, t.type_name
+            FROM equipment e
+            LEFT JOIN rooms r ON r.room_id = e.room_id
+            LEFT JOIN equipment_types t ON t.equipment_type_id = e.equipment_type_id
+            WHERE e.equipment_id = :id
+            LIMIT 1
+        ");
+        $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }
@@ -416,7 +450,13 @@ class EquipmentModel
     public function getFiltered(array $filters = []): array
     {
         $sql = "
-            SELECT e.*, r.room_code, r.room_name, t.type_name
+            SELECT e.*,
+                   CASE
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'processing') THEN 'maintenance'
+                     WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id = e.equipment_id AND mr.status = 'reported') THEN 'broken'
+                     ELSE e.status
+                   END AS availability_status,
+                   r.room_code, r.room_name, t.type_name
             FROM equipment e
             LEFT JOIN rooms r ON r.room_id = e.room_id
             LEFT JOIN equipment_types t

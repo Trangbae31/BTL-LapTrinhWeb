@@ -34,6 +34,17 @@ class DashboardController
             ?? 'Người dùng';
 
         $roleLabel = Authorization::roleLabel();
+        $unreadNotifications = 0;
+        try {
+            $noticeStmt = Database::connect()->prepare(
+                "SELECT COUNT(*) FROM notifications WHERE user_id = :user_id AND read_at IS NULL"
+            );
+            $noticeStmt->execute(['user_id' => $userId]);
+            $unreadNotifications = (int)$noticeStmt->fetchColumn();
+        } catch (Throwable $e) {
+            // Bảng thông báo có thể chưa được tạo bằng migration.
+            error_log('Notification count unavailable: ' . $e->getMessage());
+        }
 
         $stats = $this->dashboardModel->getStatistics(
             $userId,

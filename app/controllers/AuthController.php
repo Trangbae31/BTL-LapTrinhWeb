@@ -2,6 +2,7 @@
 <?php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../core/CSRF.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -24,6 +25,8 @@ class AuthController
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            CSRF::verifyOrFail();
+
             $username = trim($_POST['username'] ?? '');
 
             // Không trim mật khẩu vì khoảng trắng có thể là ký tự hợp lệ.
@@ -152,6 +155,13 @@ class AuthController
      */
     public function logout()
     {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            exit('Phương thức yêu cầu không hợp lệ.');
+        }
+
+        CSRF::verifyOrFail();
+
         // Xóa toàn bộ dữ liệu session.
         $_SESSION = [];
 

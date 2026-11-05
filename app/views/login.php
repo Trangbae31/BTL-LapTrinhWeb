@@ -295,6 +295,7 @@
             <?php endif; ?>
 
             <form action="index.php?action=login" method="POST">
+                <?= CSRF::field() ?>
                 <div class="form-group">
                     <label for="username">Email tài khoản</label>
 

@@ -42,8 +42,51 @@ class BookingApprovalController
             $status = 'pending';
         }
 
+        $roomId = filter_var($_GET['room_id'] ?? 0, FILTER_VALIDATE_INT);
+        $requesterId = filter_var($_GET['requester_id'] ?? 0, FILTER_VALIDATE_INT);
+        $dateFrom = $_GET['date_from'] ?? '';
+        $dateTo = $_GET['date_to'] ?? '';
+
+        $roomId = $roomId !== false ? max(0, (int)$roomId) : 0;
+        $requesterId = $requesterId !== false ? max(0, (int)$requesterId) : 0;
+        $dateFrom = is_string($dateFrom) ? trim($dateFrom) : '';
+        $dateTo = is_string($dateTo) ? trim($dateTo) : '';
+
+        $validDate = static function (string $date): bool {
+            if ($date === '') {
+                return true;
+            }
+            $parsed = DateTime::createFromFormat('!Y-m-d', $date);
+            $errors = DateTime::getLastErrors();
+            return $parsed !== false
+                && $parsed->format('Y-m-d') === $date
+                && ($errors === false || (
+                    $errors['warning_count'] === 0
+                    && $errors['error_count'] === 0
+                ));
+        };
+
+        if (!$validDate($dateFrom)) {
+            $dateFrom = '';
+        }
+        if (!$validDate($dateTo)) {
+            $dateTo = '';
+        }
+        if ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo) {
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
+
         try {
-            $bookings = $this->model->getBookings($status);
+            $bookings = $this->model->getBookings(
+                $status,
+                $roomId,
+                $requesterId,
+                $dateFrom,
+                $dateTo
+            );
+            $filterOptions = $this->model->getBookingFilterOptions();
+            $rooms = $filterOptions['rooms'];
+            $requesters = $filterOptions['requesters'];
 
             require __DIR__ . '/../views/booking_approvals.php';
 

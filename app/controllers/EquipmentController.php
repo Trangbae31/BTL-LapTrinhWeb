@@ -59,14 +59,26 @@ class EquipmentController
     {
         Authorization::requireRole(['admin', 'manager', 'technician']);
 
+
+        $getString = static function (string $key): string {
+            $value = $_GET[$key] ?? '';
+            return is_string($value) ? trim($value) : '';
+        };
+        $getInt = static function (string $key): int {
+            $value = $_GET[$key] ?? null;
+            if (!is_string($value) && !is_int($value)) return 0;
+            $parsed = filter_var($value, FILTER_VALIDATE_INT);
+            return $parsed !== false ? max(0, (int)$parsed) : 0;
+        };
         $filters = [
-            'keyword' => is_string($_GET['keyword'] ?? '') ? trim($_GET['keyword']) : '',
-            'room_id' => (int)($_GET['room_id'] ?? 0),
-            'equipment_type_id' => (int)($_GET['equipment_type_id'] ?? 0),
-            'status' => is_string($_GET['status'] ?? '') ? trim($_GET['status']) : '',
-            'date_from' => is_string($_GET['date_from'] ?? '') ? trim($_GET['date_from']) : '',
-            'date_to' => is_string($_GET['date_to'] ?? '') ? trim($_GET['date_to']) : ''
+            'keyword' => $getString('keyword'),
+            'room_id' => $getInt('room_id'),
+            'equipment_type_id' => $getInt('equipment_type_id'),
+            'status' => $getString('status'),
+            'date_from' => $getString('date_from'),
+            'date_to' => $getString('date_to')
         ];
+
 
         $equipmentList = $this->model->getFiltered($filters);
         $rooms = $this->model->getFilterRooms();
@@ -74,6 +86,23 @@ class EquipmentController
         $canManage = Authorization::hasAnyRole(['admin', 'manager']);
 
         require __DIR__ . '/../views/equipment_list.php';
+    }
+
+    public function detail(): void
+    {
+        Authorization::requireRole(['admin', 'manager', 'technician']);
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        $id = ($id !== false && $id !== null) ? (int)$id : 0;
+        if ($id <= 0) {
+            http_response_code(400);
+            exit('Mã thiết bị không hợp lệ.');
+        }
+        $equipment = $this->model->getDetailById($id);
+        if (!$equipment) {
+            http_response_code(404);
+            exit('Không tìm thấy thiết bị.');
+        }
+        require __DIR__ . '/../views/equipment_detail.php';
     }
 
     public function form(): void

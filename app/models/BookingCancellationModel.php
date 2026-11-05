@@ -36,8 +36,18 @@ class BookingCancellationModel
             $stmt->execute(['booking_id' => $bookingId]);
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
+            if (!$booking) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            // Không nhận yêu cầu hủy nếu lịch đã bắt đầu hoặc đã qua.
+            if (strtotime($booking['start_time']) <= time()) {
+                $this->db->rollBack();
+                return false;
+            }
+
             if (
-                !$booking ||
                 (int)$booking['user_id'] !== $requesterId ||
                 $booking['status'] !== 'approved'
             ) {

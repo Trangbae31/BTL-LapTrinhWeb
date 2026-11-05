@@ -15,12 +15,13 @@ $statusLabels = [
 
 $typeLabels = [
     'personal' => 'Cá nhân',
-    'substitute' => 'Đặt thay giảng viên',
+    'on_behalf' => 'Đặt thay giảng viên',
+    'school_wide' => 'Hoạt động chung',
     'event' => 'Hoạt động chung'
 ];
 
-$currentUserId = $_SESSION['user_id'] ?? null;
-$currentUserRole = $_SESSION['role'] ?? null;
+$currentUserId = Authorization::userId();
+$currentUserRole = Authorization::roles()[0] ?? '';
 
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
@@ -302,7 +303,25 @@ unset($_SESSION['flash']);
             <?php endif; ?>
         </form>
 
-        <a class="btn btn-primary" href="index.php?action=booking_form">+ Đặt phòng</a>
+        <a class="btn btn-primary" href="index.php?action=booking_create">+ Đặt phòng</a>
+    </div>
+
+    <div class="data-card" style="padding:18px;margin-bottom:22px">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+            <h3 class="data-card-title">Lịch booking</h3>
+            <label>Phòng:
+                <select id="calendar-room-filter" class="form-control" style="display:inline-block;width:auto">
+                    <option value="">Tất cả phòng</option>
+                    <?php foreach ($rooms as $calendarRoom): ?>
+                        <option value="<?= (int)$calendarRoom['room_id'] ?>"><?= calendarEscape($calendarRoom['room_code']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:12px 0">
+            <span>🟡 Chờ duyệt</span><span>🟢 Đã duyệt</span><span>🔴 Từ chối</span><span>⚪ Đã hủy</span>
+        </div>
+        <div id="booking-calendar" aria-label="Lịch đặt phòng theo ngày, tuần và tháng"></div>
     </div>
 
     <!-- DATA TABLE CARD -->
@@ -343,12 +362,11 @@ unset($_SESSION['flash']);
                             $bookingId = (int)($booking['booking_id'] ?? 0);
                             $bookingUserId = (int)($booking['user_id'] ?? 0);
                             
-                            // Logic gốc: So sánh với ID user đăng nhập hiện tại
-                            // (nếu thiếu ID thì mặc định true cho các dòng giảng viên để hiển thị đúng giao diện cũ)
-                            $isOwner = ($currentUserId === null) ? true : ($bookingUserId === (int)$currentUserId);
+                            // Chỉ chủ booking mới được thao tác; quyền vẫn được kiểm tra lại ở server.
+                            $isOwner = ($currentUserId > 0) && ($bookingUserId === (int)$currentUserId);
                             $isEvent = (($booking['booking_type'] ?? '') === 'event') || (($booking['user_name'] ?? '') === 'Hoạt động chung');
                         ?>
-                        <tr>
+                        <tr id="booking-<?= (int)($booking['booking_id'] ?? 0) ?>">
                             <td><strong><?= $index + 1 ?></strong></td>
                             <td><?= calendarEscape($booking['user_name'] ?? 'Hoạt động chung') ?></td>
                             <td><strong><?= calendarEscape($booking['room_code'] ?? '') ?></strong></td>
@@ -369,6 +387,8 @@ unset($_SESSION['flash']);
                                     <?php if ($isEvent): ?>
                                         <span style="color: var(--text-sub); font-size: 13px;">Không có thao tác</span>
 
+                                    <?php elseif (!$isOwner): ?>
+                                        <span style="color: var(--text-sub); font-size: 13px;">Chỉ chủ booking được thao tác</span>
                                     <?php elseif ($status === 'pending'): ?>
                                         <a class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px; text-align: center;" href="index.php?action=booking_edit&id=<?= $bookingId ?>">Sửa</a>
                                         <form method="post" action="index.php?action=booking_cancel" onsubmit="return confirm('Bạn có chắc muốn hủy yêu cầu này?')">
@@ -378,7 +398,7 @@ unset($_SESSION['flash']);
                                         </form>
 
                                     <?php elseif ($status === 'approved'): ?>
-                                        <form method="post" action="index.php?action=request_cancel_approved">
+                                        <form method="post" action="index.php?action=booking_cancellation_request">
                                             <?= CSRF::field() ?>
                                             <input type="hidden" name="booking_id" value="<?= $bookingId ?>">
                                             <input type="text" name="reason" class="action-input" placeholder="Nhập lý do xin hủy..." required>
@@ -403,6 +423,49 @@ unset($_SESSION['flash']);
     </div>
 
 </div>
+
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('booking-calendar');
+    if (!calendarEl || !window.FullCalendar) {
+        if (calendarEl) calendarEl.textContent = 'Không tải được thư viện lịch. Vui lòng kiểm tra kết nối Internet.';
+        return;
+    }
+    const bookingRows = <?= json_encode(array_map(static function($b) {
+        $colors = ['pending'=>'#d69e2e','approved'=>'#27865a','rejected'=>'#c94b4b','cancelled'=>'#89939d'];
+        return [
+            'id'=>(string)($b['booking_id'] ?? ''),
+            'title'=>($b['room_code'] ?? 'Phòng') . ' · ' . ($b['status'] ?? ''),
+            'start'=>isset($b['start_time']) ? str_replace(' ', 'T', $b['start_time']) : '',
+            'end'=>isset($b['end_time']) ? str_replace(' ', 'T', $b['end_time']) : '',
+            'backgroundColor'=>$colors[$b['status'] ?? ''] ?? '#65748b',
+            'borderColor'=>$colors[$b['status'] ?? ''] ?? '#65748b',
+            'extendedProps'=>['roomId'=>(string)($b['room_id'] ?? '')]
+        ];
+    }, $bookings), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'vi',
+        height: 'auto',
+        headerToolbar: {left:'prev,next today', center:'title', right:'dayGridMonth,timeGridWeek,timeGridDay'},
+        buttonText: {today:'Hôm nay', month:'Tháng', week:'Tuần', day:'Ngày'},
+        events: bookingRows,
+        eventTimeFormat: {hour:'2-digit', minute:'2-digit', hour12:false},
+        eventDidMount: function(info) {
+            info.el.title = info.event.title + ' (' + info.event.start.toLocaleString('vi-VN') + ')';
+        }
+    });
+    calendar.render();
+    document.getElementById('calendar-room-filter').addEventListener('change', function() {
+        const roomId = this.value;
+        calendar.removeAllEvents();
+        bookingRows.filter(e => !roomId || e.extendedProps.roomId === roomId).forEach(e => calendar.addEvent(e));
+    });
+});
+</script>
 
 </body>
 </html>

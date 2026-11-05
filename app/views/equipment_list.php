@@ -344,11 +344,14 @@ unset($_SESSION['flash']);
                 <?php else: ?>
                     <?php foreach ($equipmentList as $item): ?>
                         <?php 
-                            $status = $item['status'] ?? 'available';
+                            $status = $item['availability_status'] ?? ($item['status'] ?? 'available');
                             $statusClass = 'status-' . $status;
                         ?>
                         <tr>
-                            <td><strong><?= equipmentEscape($item['equipment_code'] ?? '') ?></strong></td>
+                            <td>
+                                <strong><?= equipmentEscape($item['equipment_code'] ?? '') ?></strong><br>
+                                <a href="index.php?action=equipment_detail&id=<?= (int)$item['equipment_id'] ?>">Chi tiết / QR</a>
+                            </td>
                             <td><?= equipmentEscape($item['equipment_name'] ?? '') ?></td>
                             <td><?= equipmentEscape($item['type_name'] ?? 'Chưa phân loại') ?></td>
                             <td>

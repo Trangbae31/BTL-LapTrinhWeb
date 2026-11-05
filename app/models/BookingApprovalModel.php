@@ -15,8 +15,13 @@ class BookingApprovalModel
     /**
      * Lấy danh sách yêu cầu đặt phòng theo trạng thái.
      */
-    public function getBookings(string $status = 'pending'): array
-    {
+    public function getBookings(
+        string $status = 'pending',
+        int $roomId = 0,
+        int $requesterId = 0,
+        string $dateFrom = '',
+        string $dateTo = ''
+    ): array {
         $sql = "
             SELECT
                 b.booking_id,
@@ -45,11 +50,33 @@ class BookingApprovalModel
             LEFT JOIN buildings bu ON r.building_id = bu.building_id
         ";
 
+        $conditions = [];
         $params = [];
 
         if ($status !== 'all') {
-            $sql .= " WHERE b.status = :status";
+            $conditions[] = 'b.status = :status';
             $params['status'] = $status;
+        }
+        if ($roomId > 0) {
+            $conditions[] = 'b.room_id = :room_id';
+            $params['room_id'] = $roomId;
+        }
+        if ($requesterId > 0) {
+            $conditions[] = 'b.user_id = :requester_id';
+            $params['requester_id'] = $requesterId;
+        }
+        // Lọc theo khoảng giao nhau với toàn bộ ngày [date_from, date_to].
+        if ($dateFrom !== '') {
+            $conditions[] = 'b.end_time >= :date_from';
+            $params['date_from'] = $dateFrom . ' 00:00:00';
+        }
+        if ($dateTo !== '') {
+            $conditions[] = 'b.start_time < DATE_ADD(:date_to, INTERVAL 1 DAY)';
+            $params['date_to'] = $dateTo;
+        }
+
+        if ($conditions) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
         }
 
         $sql .= "
@@ -62,6 +89,30 @@ class BookingApprovalModel
         $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Dữ liệu cho các danh sách chọn trong bộ lọc.
+     */
+    public function getBookingFilterOptions(): array
+    {
+        $rooms = $this->db->query("
+            SELECT room_id, room_code, room_name
+            FROM rooms
+            ORDER BY room_code ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $requesters = $this->db->query("
+            SELECT DISTINCT u.user_id, u.full_name, u.email
+            FROM users u
+            INNER JOIN bookings b ON b.user_id = u.user_id
+            ORDER BY u.full_name ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'rooms' => $rooms,
+            'requesters' => $requesters
+        ];
     }
 
     /**
@@ -167,6 +218,15 @@ class BookingApprovalModel
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$booking || $booking['status'] !== 'pending') {
+                $this->db->rollBack();
+                return false;
+            }
+
+            // Người tạo/người sử dụng booking không được tự duyệt booking của mình.
+            if (
+                (int)($booking['created_by_user_id'] ?? 0) === $reviewerId
+                || (int)($booking['user_id'] ?? 0) === $reviewerId
+            ) {
                 $this->db->rollBack();
                 return false;
             }

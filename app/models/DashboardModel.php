@@ -47,14 +47,26 @@ class DashboardModel
                 "SELECT COUNT(*) FROM equipment"
             )->fetchColumn();
             $stats['available_equipment'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM equipment WHERE status = 'available'"
+                "SELECT COUNT(*) FROM equipment e
+                 WHERE CASE
+                   WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id=e.equipment_id AND mr.status='processing') THEN 'maintenance'
+                   WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id=e.equipment_id AND mr.status='reported') THEN 'broken'
+                   ELSE e.status END = 'available'"
             )->fetchColumn();
             $stats['active_equipment'] = $stats['available_equipment'];
             $stats['broken_equipment'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM equipment WHERE status = 'broken'"
+                "SELECT COUNT(*) FROM equipment e
+                 WHERE CASE
+                   WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id=e.equipment_id AND mr.status='processing') THEN 'maintenance'
+                   WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id=e.equipment_id AND mr.status='reported') THEN 'broken'
+                   ELSE e.status END = 'broken'"
             )->fetchColumn();
             $stats['maintenance_equipment'] = (int)$this->db->query(
-                "SELECT COUNT(*) FROM equipment WHERE status = 'maintenance'"
+                "SELECT COUNT(*) FROM equipment e
+                 WHERE CASE
+                   WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id=e.equipment_id AND mr.status='processing') THEN 'maintenance'
+                   WHEN EXISTS (SELECT 1 FROM maintenance_reports mr WHERE mr.equipment_id=e.equipment_id AND mr.status='reported') THEN 'broken'
+                   ELSE e.status END = 'maintenance'"
             )->fetchColumn();
             $stats['pending_bookings'] = (int)$this->db->query(
                 "SELECT COUNT(*) FROM bookings WHERE status = 'pending'"

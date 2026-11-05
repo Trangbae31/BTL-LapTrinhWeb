@@ -1,6 +1,8 @@
 
 <?php
 
+require_once __DIR__ . '/../../config/database.php';
+
 /**
  * Quản lý xác thực và phân quyền tập trung.
  *
@@ -10,6 +12,7 @@
 
 class Authorization
 {
+    private static bool $accountChecked = false;
     public static function isLoggedIn(): bool
     {
         return isset($_SESSION['user']['user_id']);
@@ -51,6 +54,51 @@ class Authorization
         if (!self::isLoggedIn()) {
             header('Location: index.php?action=login');
             exit();
+        }
+
+        // Kiểm tra trạng thái tài khoản trên CSDL ở request đầu tiên cần xác thực.
+        if (!self::$accountChecked) {
+            self::$accountChecked = true;
+
+            try {
+                $stmt = Database::connect()->prepare(
+                    "SELECT status FROM users WHERE user_id = :user_id LIMIT 1"
+                );
+                $stmt->execute(['user_id' => self::userId()]);
+                $status = $stmt->fetchColumn();
+
+                if ($status !== 'active') {
+                    self::destroySession();
+                    header('Location: index.php?action=login&account_locked=1');
+                    exit();
+                }
+            } catch (Throwable $e) {
+                error_log('Account status check error: ' . $e->getMessage());
+                http_response_code(503);
+                exit('Không thể xác thực trạng thái tài khoản. Vui lòng thử lại.');
+            }
+        }
+    }
+
+    private static function destroySession(): void
+    {
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
         }
     }
 

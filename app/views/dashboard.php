@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../core/Authorization.php';
+require_once __DIR__ . '/../core/CSRF.php';
 
 $userName = $_SESSION['user']['full_name']
     ?? $_SESSION['user']['fullname']
@@ -217,6 +218,14 @@ if ($isAdmin) {
             font-size: 12px;
             font-weight: 700;
             white-space: nowrap;
+            border: 0;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .logout-form {
+            display: inline-block;
+            margin: 0;
         }
 
         .logout:hover {
@@ -547,6 +556,16 @@ if ($isAdmin) {
                 </a>
             </li>
 
+            <li>
+                <a href="index.php?action=notifications">
+                    <span class="menu-icon">🔔</span>
+                    Thông báo
+                    <?php if (!empty($unreadNotifications)): ?>
+                        <strong style="margin-left:auto;background:#e65d55;color:#fff;border-radius:12px;padding:2px 7px;font-size:11px;"><?= (int)$unreadNotifications ?></strong>
+                    <?php endif; ?>
+                </a>
+            </li>
+
             <?php if ($isManager): ?>
                 <li>
                     <a href="index.php?action=rooms">
@@ -638,9 +657,12 @@ if ($isAdmin) {
                     </div>
                 </div>
 
-                <a href="index.php?action=logout" class="logout">
-                    Đăng xuất ↗
-                </a>
+                <form action="index.php?action=logout" method="POST" class="logout-form">
+                    <?= CSRF::field() ?>
+                    <button type="submit" class="logout">
+                        Đăng xuất ↗
+                    </button>
+                </form>
             </div>
         </header>
 

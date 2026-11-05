@@ -123,9 +123,6 @@ CREATE TABLE IF NOT EXISTS equipment (
 -- =====================================================
 -- 8. BOOKINGS: YEU CAU DAT PHONG
 -- =====================================================
--- =====================================================
--- 8. BOOKINGS: YEU CAU DAT PHONG
--- =====================================================
 CREATE TABLE IF NOT EXISTS bookings (
     booking_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
@@ -188,7 +185,34 @@ CREATE TABLE IF NOT EXISTS bookings (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 9. BOOKING_CANCELLATION_REQUESTS
+-- 9. NOTIFICATIONS: THONG BAO NHAC LICH BOOKING
+-- =====================================================
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    booking_id INT UNSIGNED NOT NULL,
+    notification_type VARCHAR(40) NOT NULL DEFAULT 'booking_reminder_30m',
+    message VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at DATETIME NULL,
+
+    UNIQUE KEY uq_notification_booking_user_type
+        (booking_id, user_id, notification_type),
+
+    INDEX idx_notifications_user_read
+        (user_id, read_at, created_at),
+
+    CONSTRAINT fk_notifications_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+
+    CONSTRAINT fk_notifications_booking
+        FOREIGN KEY (booking_id) REFERENCES bookings(booking_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- =====================================================
+-- 10. BOOKING_CANCELLATION_REQUESTS
 -- YEU CAU HUY DAT PHONG
 -- =====================================================
 CREATE TABLE IF NOT EXISTS booking_cancellation_requests (
@@ -228,7 +252,7 @@ CREATE TABLE IF NOT EXISTS booking_cancellation_requests (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 10. BOOKING_APPROVALS: LICH SU DUYET DAT PHONG
+-- 11. BOOKING_APPROVALS: LICH SU DUYET DAT PHONG
 -- =====================================================
 CREATE TABLE IF NOT EXISTS booking_approvals (
     approval_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -248,7 +272,7 @@ CREATE TABLE IF NOT EXISTS booking_approvals (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 11. EQUIPMENT_HISTORY: LICH SU THIET BI
+-- 12. EQUIPMENT_HISTORY: LICH SU THIET BI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS equipment_history (
     history_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -272,7 +296,7 @@ CREATE TABLE IF NOT EXISTS equipment_history (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 12. MAINTENANCE_REPORTS: BAO HONG / BAO TRI
+-- 13. MAINTENANCE_REPORTS: BAO HONG / BAO TRI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS maintenance_reports (
     report_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -307,7 +331,7 @@ CREATE TABLE IF NOT EXISTS maintenance_reports (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 13. MAINTENANCE_REPORT_IMAGES: HINH ANH PHIEU BAO HONG
+-- 14. MAINTENANCE_REPORT_IMAGES: HINH ANH PHIEU BAO HONG
 -- =====================================================
 CREATE TABLE IF NOT EXISTS maintenance_report_images (
     image_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -326,7 +350,7 @@ CREATE TABLE IF NOT EXISTS maintenance_report_images (
 ) ENGINE=InnoDB;
 
 -- =====================================================
--- 14. MAINTENANCE_HISTORY: LICH SU XU LY BAO TRI
+-- 15. MAINTENANCE_HISTORY: LICH SU XU LY BAO TRI
 -- =====================================================
 CREATE TABLE IF NOT EXISTS maintenance_history (
     history_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

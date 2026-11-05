@@ -144,11 +144,34 @@ function approvalEscape($value): string
 
         .filter-card {
             padding: 20px 22px;
+            display: block;
+        }
+
+        .booking-filter-form {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
+        }
+
+        .booking-filter-form input[type="date"] {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+        }
+
+        .booking-filter-form button {
+            width: auto;
+            padding: 10px 14px;
+        }
+
+        .clear-filter {
+            color: var(--green);
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            padding: 9px 4px;
         }
 
         .filter-card label {
@@ -319,7 +342,9 @@ function approvalEscape($value): string
                 flex-direction: column;
             }
 
-            select { width: 100%; }
+            select,
+            .booking-filter-form input[type="date"],
+            .booking-filter-form button { width: 100%; }
         }
     </style>
 </head>
@@ -356,32 +381,46 @@ function approvalEscape($value): string
     <?php endif; ?>
 
     <section class="filter-card">
-        <form method="GET" action="index.php">
+        <form method="GET" action="index.php" class="booking-filter-form">
             <input type="hidden" name="action" value="booking_approvals">
 
-            <label for="status">Lọc theo trạng thái:</label>
-
-            <select name="status" id="status" onchange="this.form.submit()">
-                <option value="pending" <?= ($status ?? '') === 'pending' ? 'selected' : '' ?>>
-                    Chờ duyệt
-                </option>
-
-                <option value="approved" <?= ($status ?? '') === 'approved' ? 'selected' : '' ?>>
-                    Đã duyệt
-                </option>
-
-                <option value="rejected" <?= ($status ?? '') === 'rejected' ? 'selected' : '' ?>>
-                    Đã từ chối
-                </option>
-
-                <option value="cancelled" <?= ($status ?? '') === 'cancelled' ? 'selected' : '' ?>>
-                    Đã hủy
-                </option>
-
-                <option value="all" <?= ($status ?? '') === 'all' ? 'selected' : '' ?>>
-                    Tất cả
-                </option>
+            <label for="status">Trạng thái:</label>
+            <select name="status" id="status">
+                <option value="pending" <?= ($status ?? '') === 'pending' ? 'selected' : '' ?>>Chờ duyệt</option>
+                <option value="approved" <?= ($status ?? '') === 'approved' ? 'selected' : '' ?>>Đã duyệt</option>
+                <option value="rejected" <?= ($status ?? '') === 'rejected' ? 'selected' : '' ?>>Đã từ chối</option>
+                <option value="cancelled" <?= ($status ?? '') === 'cancelled' ? 'selected' : '' ?>>Đã hủy</option>
+                <option value="all" <?= ($status ?? '') === 'all' ? 'selected' : '' ?>>Tất cả</option>
             </select>
+
+            <label for="room_id">Phòng:</label>
+            <select name="room_id" id="room_id">
+                <option value="0">Tất cả phòng</option>
+                <?php foreach (($rooms ?? []) as $room): ?>
+                    <option value="<?= (int)$room['room_id'] ?>" <?= (int)($roomId ?? 0) === (int)$room['room_id'] ? 'selected' : '' ?>>
+                        <?= approvalEscape($room['room_code'] . ' - ' . $room['room_name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <label for="requester_id">Người đặt:</label>
+            <select name="requester_id" id="requester_id">
+                <option value="0">Tất cả người đặt</option>
+                <?php foreach (($requesters ?? []) as $requester): ?>
+                    <option value="<?= (int)$requester['user_id'] ?>" <?= (int)($requesterId ?? 0) === (int)$requester['user_id'] ? 'selected' : '' ?>>
+                        <?= approvalEscape($requester['full_name'] . ' (' . $requester['email'] . ')') ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <label for="date_from">Từ ngày:</label>
+            <input type="date" name="date_from" id="date_from" value="<?= approvalEscape($dateFrom ?? '') ?>">
+
+            <label for="date_to">Đến ngày:</label>
+            <input type="date" name="date_to" id="date_to" value="<?= approvalEscape($dateTo ?? '') ?>">
+
+            <button type="submit" class="btn-approve">Áp dụng bộ lọc</button>
+            <a href="index.php?action=booking_approvals" class="clear-filter">Xóa bộ lọc</a>
         </form>
     </section>
 
