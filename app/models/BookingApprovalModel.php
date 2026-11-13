@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/NotificationModel.php';
 
 class BookingApprovalModel
 {
@@ -291,6 +292,10 @@ class BookingApprovalModel
                 'reviewer_id' => $reviewerId,
                 'comment' => $comment
             ]);
+            if ((int)($booking['user_id'] ?? 0) > 0) {
+                NotificationModel::create($this->db, (int)$booking['user_id'], 'booking_approved',
+                    'Yêu cầu đặt phòng của bạn đã được duyệt (Booking #' . $bookingId . ').', $bookingId);
+            }
 
             $this->db->commit();
 
@@ -317,7 +322,7 @@ class BookingApprovalModel
             $this->db->beginTransaction();
 
             $stmt = $this->db->prepare("
-                SELECT booking_id, status
+                SELECT booking_id, user_id, created_by_user_id, status
                 FROM bookings
                 WHERE booking_id = :booking_id
                 FOR UPDATE
@@ -328,6 +333,15 @@ class BookingApprovalModel
             $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$booking || $booking['status'] !== 'pending') {
+                $this->db->rollBack();
+                return false;
+            }
+
+            // Không cho người tạo/người sử dụng tự từ chối booking của mình.
+            if (
+                (int)($booking['created_by_user_id'] ?? 0) === $reviewerId
+                || (int)($booking['user_id'] ?? 0) === $reviewerId
+            ) {
                 $this->db->rollBack();
                 return false;
             }
@@ -370,6 +384,10 @@ class BookingApprovalModel
                 'reviewer_id' => $reviewerId,
                 'comment' => $comment
             ]);
+            if ((int)($booking['user_id'] ?? 0) > 0) {
+                NotificationModel::create($this->db, (int)$booking['user_id'], 'booking_rejected',
+                    'Yêu cầu đặt phòng của bạn đã bị từ chối (Booking #' . $bookingId . '). Lý do: ' . $comment, $bookingId);
+            }
 
             $this->db->commit();
 

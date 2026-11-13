@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/NotificationModel.php';
 
 class BookingModel
 {
@@ -516,6 +517,13 @@ class BookingModel
                     'reviewer_id' => $createdByUserId,
                     'comment' => 'Lịch được Manager/Admin tạo và tự động xác nhận.'
                 ]);
+                if ($bookingUserId !== null && $bookingUserId !== $createdByUserId) {
+                    NotificationModel::create($this->db, $bookingUserId, 'booking_created_for_you',
+                        'Quản lý đã tạo và xác nhận lịch đặt phòng cho bạn (Booking #' . $bookingId . ').', $bookingId);
+                }
+            } else {
+                NotificationModel::notifyRoles($this->db, ['manager', 'admin'], 'booking_pending',
+                    'Có yêu cầu đặt phòng mới cần phê duyệt (Booking #' . $bookingId . ').', $bookingId, null, $createdByUserId);
             }
 
             $this->db->commit();
@@ -766,6 +774,11 @@ class BookingModel
             if ($update->rowCount() !== 1) {
                 $this->db->rollBack();
                 return false;
+            }
+
+            if ($isManager && (int)($booking['user_id'] ?? 0) > 0 && (int)$booking['user_id'] !== $actorId) {
+                NotificationModel::create($this->db, (int)$booking['user_id'], 'booking_cancelled',
+                    'Lịch đặt phòng của bạn đã bị hủy bởi quản lý (Booking #' . $bookingId . ').', $bookingId);
             }
 
             // Nếu có yêu cầu hủy đang chờ xử lý,

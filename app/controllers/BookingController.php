@@ -275,6 +275,11 @@ class BookingController
         $actorId = Authorization::userId();
         $old = $this->getOldBookingData();
 
+        // Tương thích với dữ liệu form cũ chỉ gửi trường purpose.
+        if ($old['title'] === '') {
+            $old['title'] = $old['purpose'];
+        }
+
         $errors = $this->validateBookingData(
             $old['room_id'],
             $old['title'],

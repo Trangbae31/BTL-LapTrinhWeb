@@ -7,8 +7,12 @@ function bookingFormEscape($value): string
 }
 
 $errors = $errors ?? [];
-$formData = $formData ?? [];
+$formData = $formData ?? ($old ?? []);
 $rooms = $rooms ?? [];
+$teachers = $teachers ?? [];
+$role = $role ?? (Authorization::hasRole('teacher') ? 'teacher' : (Authorization::hasRole('admin') ? 'admin' : 'manager'));
+$isStaffBooking = in_array($role, ['admin', 'manager'], true);
+$selectedBookingType = $formData['booking_type'] ?? ($isStaffBooking ? 'on_behalf' : 'personal');
 
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
@@ -211,12 +215,46 @@ unset($_SESSION['flash']);
         <form method="post" action="index.php?action=booking_store">
             <?= CSRF::field() ?>
 
+            <?php if (!empty($errors)): ?>
+                <div class="flash error" role="alert">
+                    <strong>Không thể gửi yêu cầu:</strong>
+                    <ul style="margin:8px 0 0 20px;">
+                        <?php foreach ($errors as $error): ?>
+                            <li><?= bookingFormEscape($error) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
             <!-- Hình thức đặt phòng -->
             <div class="form-group">
-                <label>Hình thức đặt phòng</label>
-                <input type="text" class="form-control" value="Đặt phòng cá nhân" readonly style="background-color: #f8faf9;">
-                <p class="form-note">Yêu cầu của giảng viên sẽ ở trạng thái chờ duyệt bởi Quản lý/Admin.</p>
+                <label for="booking_type">Hình thức đặt phòng</label>
+                <?php if ($isStaffBooking): ?>
+                    <select name="booking_type" id="booking_type" class="form-control" required>
+                        <option value="on_behalf" <?= $selectedBookingType === 'on_behalf' ? 'selected' : '' ?>>Đặt phòng thay giảng viên</option>
+                        <option value="school_wide" <?= $selectedBookingType === 'school_wide' ? 'selected' : '' ?>>Đặt phòng cho hoạt động chung</option>
+                    </select>
+                    <p class="form-note">Booking do Admin/Manager tạo sẽ được duyệt tự động sau khi kiểm tra hợp lệ.</p>
+                <?php else: ?>
+                    <input type="text" class="form-control" value="Đặt phòng cá nhân" readonly style="background-color: #f8faf9;">
+                    <p class="form-note">Yêu cầu đặt phòng cá nhân sẽ ở trạng thái chờ Quản lý/Admin duyệt.</p>
+                <?php endif; ?>
             </div>
+
+            <?php if ($isStaffBooking): ?>
+                <div class="form-group" id="teacherSelectGroup" style="<?= $selectedBookingType === 'school_wide' ? 'display:none;' : '' ?>">
+                    <label for="teacher_id">Giảng viên sử dụng phòng <span style="color: var(--danger-color);">*</span></label>
+                    <select name="teacher_id" id="teacher_id" class="form-control" <?= $selectedBookingType === 'school_wide' ? '' : 'required' ?>>
+                        <option value="">-- Chọn giảng viên --</option>
+                        <?php foreach ($teachers as $teacher): ?>
+                            <option value="<?= (int)$teacher['user_id'] ?>" <?= ((int)($formData['teacher_id'] ?? 0) === (int)$teacher['user_id']) ? 'selected' : '' ?>>
+                                <?= bookingFormEscape($teacher['full_name']) ?> (<?= bookingFormEscape($teacher['email']) ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="form-note">Chỉ hiển thị tài khoản giảng viên đang hoạt động.</p>
+                </div>
+            <?php endif; ?>
 
             <!-- Chọn phòng -->
             <div class="form-group">
@@ -234,21 +272,32 @@ unset($_SESSION['flash']);
                 <?php endif; ?>
             </div>
 
-            <!-- Tên nội dung đặt phòng -->
+            <!-- Tiêu đề booking -->
             <div class="form-group">
-                <label for="purpose">Tên nội dung đặt phòng <span style="color: var(--danger-color);">*</span></label>
+                <label for="title">Tên nội dung đặt phòng <span style="color: var(--danger-color);">*</span></label>
                 <input
                     type="text"
+                    name="title"
+                    id="title"
+                    class="form-control"
+                    maxlength="200"
+                    placeholder="Ví dụ: Thực hành PHP, Ôn tập lập trình C#..."
+                    value="<?= bookingFormEscape($formData['title'] ?? '') ?>"
+                    required
+                >
+            </div>
+
+            <!-- Mục đích sử dụng -->
+            <div class="form-group">
+                <label for="purpose">Mục đích sử dụng <span style="color: var(--danger-color);">*</span></label>
+                <textarea
                     name="purpose"
                     id="purpose"
                     class="form-control"
-                    placeholder="Ví dụ: Thực hành PHP, Ôn tập lập trình C#..."
-                    value="<?= bookingFormEscape($formData['purpose'] ?? '') ?>"
+                    rows="3"
+                    placeholder="Mô tả mục đích sử dụng phòng..."
                     required
-                >
-                <?php if (!empty($errors['purpose'])): ?>
-                    <p class="error-message"><?= bookingFormEscape($errors['purpose']) ?></p>
-                <?php endif; ?>
+                ><?= bookingFormEscape($formData['purpose'] ?? '') ?></textarea>
             </div>
 
             <!-- Ngày sử dụng -->
@@ -300,17 +349,7 @@ unset($_SESSION['flash']);
                 </div>
             </div>
 
-            <!-- Mục đích chi tiết -->
-            <div class="form-group">
-                <label for="note">Mục đích sử dụng chi tiết</label>
-                <textarea
-                    name="note"
-                    id="note"
-                    class="form-control"
-                    rows="4"
-                    placeholder="Nhập chi tiết yêu cầu phần mềm, thiết bị hoặc ghi chú thêm..."
-                ><?= bookingFormEscape($formData['note'] ?? '') ?></textarea>
-            </div>
+
 
             <div id="roomAvailabilityMessage" class="form-group" aria-live="polite" style="display:none;padding:12px;border-radius:8px;background:#f4f7f5;"></div>
 
@@ -329,6 +368,25 @@ unset($_SESSION['flash']);
 </div>
 
 <script>
+(function () {
+    const bookingType = document.getElementById('booking_type');
+    const teacherGroup = document.getElementById('teacherSelectGroup');
+    const teacherSelect = document.getElementById('teacher_id');
+
+    function updateTeacherRequirement() {
+        if (!bookingType || !teacherGroup || !teacherSelect) return;
+        const isOnBehalf = bookingType.value === 'on_behalf';
+        teacherGroup.style.display = isOnBehalf ? '' : 'none';
+        teacherSelect.required = isOnBehalf;
+        if (!isOnBehalf) teacherSelect.value = '';
+    }
+
+    if (bookingType) {
+        bookingType.addEventListener('change', updateTeacherRequirement);
+        updateTeacherRequirement();
+    }
+})();
+
 (function () {
     const room = document.getElementById('room_id');
     const date = document.getElementById('booking_date');

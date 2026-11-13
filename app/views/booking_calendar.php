@@ -22,9 +22,34 @@ $typeLabels = [
 
 $currentUserId = Authorization::userId();
 $currentUserRole = Authorization::roles()[0] ?? '';
+$canCreateBooking = Authorization::hasAnyRole(['admin', 'manager', 'teacher']);
+$canManageBookings = Authorization::hasAnyRole(['admin', 'manager']);
 
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
+
+if (!$flash && isset($_GET['message']) && is_string($_GET['message'])) {
+    $calendarMessages = [
+        'created' => ['success', 'Đã gửi yêu cầu đặt phòng.'],
+        'created_approved' => ['success', 'Đã tạo và xác nhận lịch đặt phòng.'],
+        'updated' => ['success', 'Đã cập nhật yêu cầu đặt phòng.'],
+        'not_allowed' => ['error', 'Bạn không có quyền thực hiện thao tác này.'],
+        'cancelled' => ['success', 'Đã hủy lịch đặt phòng.'],
+        'cancel_failed' => ['error', 'Không thể hủy lịch. Lịch có thể đã bắt đầu hoặc đã được xử lý.'],
+        'cancel_reason_required' => ['error', 'Quản lý/Admin cần nhập lý do khi hủy lịch.'],
+        'cancellation_request_invalid' => ['error', 'Vui lòng nhập mã lịch và lý do hủy hợp lệ.'],
+        'cancellation_request_sent' => ['success', 'Đã gửi yêu cầu hủy lịch đến Quản lý/Admin.'],
+        'cancellation_request_failed' => ['error', 'Không thể gửi yêu cầu hủy. Lịch có thể không thuộc bạn hoặc đã có yêu cầu đang chờ.']
+    ];
+
+    $messageKey = $_GET['message'];
+    if (isset($calendarMessages[$messageKey])) {
+        $flash = [
+            'type' => $calendarMessages[$messageKey][0],
+            'message' => $calendarMessages[$messageKey][1]
+        ];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -303,7 +328,9 @@ unset($_SESSION['flash']);
             <?php endif; ?>
         </form>
 
-        <a class="btn btn-primary" href="index.php?action=booking_create">+ Đặt phòng</a>
+        <?php if ($canCreateBooking): ?>
+            <a class="btn btn-primary" href="index.php?action=booking_create">+ Đặt phòng</a>
+        <?php endif; ?>
     </div>
 
     <div class="data-card" style="padding:18px;margin-bottom:22px">
@@ -328,7 +355,7 @@ unset($_SESSION['flash']);
     <div class="data-card">
         <div class="data-card-header">
             <h3 class="data-card-title">Danh sách lịch phòng</h3>
-            <p class="data-card-subtitle">Bạn chỉ được sửa hoặc hủy trực tiếp yêu cầu đang chờ duyệt của mình. Với lịch đã duyệt, bạn cần gửi yêu cầu hủy và chờ Manager/Admin xử lý.</p>
+            <p class="data-card-subtitle">Giảng viên chỉ được sửa/hủy yêu cầu đang chờ duyệt của mình hoặc gửi yêu cầu hủy lịch đã duyệt. Quản lý/Admin có thể hủy trực tiếp lịch đang chờ duyệt hoặc đã duyệt.</p>
         </div>
 
         <div class="table-responsive">
@@ -362,9 +389,9 @@ unset($_SESSION['flash']);
                             $bookingId = (int)($booking['booking_id'] ?? 0);
                             $bookingUserId = (int)($booking['user_id'] ?? 0);
                             
-                            // Chỉ chủ booking mới được thao tác; quyền vẫn được kiểm tra lại ở server.
+                            // Teacher chỉ thao tác booking của mình; Admin/Manager có quyền quản lý toàn bộ.
                             $isOwner = ($currentUserId > 0) && ($bookingUserId === (int)$currentUserId);
-                            $isEvent = (($booking['booking_type'] ?? '') === 'event') || (($booking['user_name'] ?? '') === 'Hoạt động chung');
+                            $canManageThisBooking = $canManageBookings && in_array($status, ['pending', 'approved'], true);
                         ?>
                         <tr id="booking-<?= (int)($booking['booking_id'] ?? 0) ?>">
                             <td><strong><?= $index + 1 ?></strong></td>
@@ -372,7 +399,10 @@ unset($_SESSION['flash']);
                             <td><strong><?= calendarEscape($booking['room_code'] ?? '') ?></strong></td>
                             <td><?= calendarEscape($booking['room_name'] ?? '') ?></td>
                             <td>
-                                <strong><?= calendarEscape($booking['purpose'] ?? '') ?></strong>
+                                <strong><?= calendarEscape($booking['title'] ?? $booking['purpose'] ?? '') ?></strong>
+                                <?php if (!empty($booking['purpose']) && ($booking['purpose'] ?? '') !== ($booking['title'] ?? '')): ?>
+                                    <span class="type-subtext"><?= calendarEscape($booking['purpose']) ?></span>
+                                <?php endif; ?>
                                 <span class="type-subtext"><?= calendarEscape($typeLabels[$booking['booking_type'] ?? 'personal'] ?? '') ?></span>
                             </td>
                             <td><?= calendarEscape($booking['start_time'] ?? '') ?></td>
@@ -384,12 +414,15 @@ unset($_SESSION['flash']);
                             </td>
                             <td>
                                 <div class="actions">
-                                    <?php if ($isEvent): ?>
-                                        <span style="color: var(--text-sub); font-size: 13px;">Không có thao tác</span>
+                                    <?php if ($canManageThisBooking): ?>
+                                        <form method="post" action="index.php?action=booking_cancel" onsubmit="return confirm('Xác nhận hủy lịch này?')">
+                                            <?= CSRF::field() ?>
+                                            <input type="hidden" name="booking_id" value="<?= $bookingId ?>">
+                                            <input type="text" name="reason" class="action-input" placeholder="Lý do hủy lịch..." required maxlength="500">
+                                            <button class="btn btn-danger" style="width: 100%; padding: 6px 12px; font-size: 13px;" type="submit">Hủy lịch</button>
+                                        </form>
 
-                                    <?php elseif (!$isOwner): ?>
-                                        <span style="color: var(--text-sub); font-size: 13px;">Chỉ chủ booking được thao tác</span>
-                                    <?php elseif ($status === 'pending'): ?>
+                                    <?php elseif ($isOwner && $status === 'pending'): ?>
                                         <a class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px; text-align: center;" href="index.php?action=booking_edit&id=<?= $bookingId ?>">Sửa</a>
                                         <form method="post" action="index.php?action=booking_cancel" onsubmit="return confirm('Bạn có chắc muốn hủy yêu cầu này?')">
                                             <?= CSRF::field() ?>
@@ -397,11 +430,11 @@ unset($_SESSION['flash']);
                                             <button class="btn btn-danger" style="width: 100%; padding: 6px 12px; font-size: 13px;" type="submit">Hủy yêu cầu</button>
                                         </form>
 
-                                    <?php elseif ($status === 'approved'): ?>
+                                    <?php elseif ($isOwner && $status === 'approved'): ?>
                                         <form method="post" action="index.php?action=booking_cancellation_request">
                                             <?= CSRF::field() ?>
                                             <input type="hidden" name="booking_id" value="<?= $bookingId ?>">
-                                            <input type="text" name="reason" class="action-input" placeholder="Nhập lý do xin hủy..." required>
+                                            <input type="text" name="reason" class="action-input" placeholder="Nhập lý do xin hủy..." required maxlength="500">
                                             <button class="btn btn-danger" style="width: 100%; padding: 6px 12px; font-size: 13px;" type="submit">Gửi yêu cầu hủy</button>
                                         </form>
 

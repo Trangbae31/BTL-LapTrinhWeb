@@ -579,13 +579,25 @@ if ($isAdmin) {
                         Duyệt đặt phòng
                     </a>
                 </li>
+                <li>
+                    <a href="index.php?action=booking_cancellation_requests">
+                        <span class="menu-icon">↩</span>
+                        Duyệt yêu cầu hủy
+                    </a>
+                </li>
             <?php endif; ?>
 
-            <?php if ($isTeacher): ?>
+            <?php if ($isTeacher || $isManager): ?>
                 <li>
                     <a href="index.php?action=calendar">
                         <span class="menu-icon">▦</span>
                         Lịch phòng thực hành
+                    </a>
+                </li>
+                <li>
+                    <a href="index.php?action=booking_create">
+                        <span class="menu-icon">➕</span>
+                        Đặt phòng thực hành
                     </a>
                 </li>
             <?php endif; ?>
@@ -800,6 +812,19 @@ if ($isAdmin) {
 
                 <?php if ($isManager): ?>
                     <article class="feature-card">
+                        <div class="feature-icon icon-green">📅</div>
+                        <h3>Lịch phòng thực hành</h3>
+                        <p>Theo dõi lịch sử dụng phòng, kiểm tra tình trạng phòng và tra cứu các booking trong hệ thống.</p>
+                        <a href="index.php?action=calendar" class="feature-link">Xem lịch phòng <span>→</span></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="feature-icon icon-blue">➕</div>
+                        <h3>Đặt phòng thực hành</h3>
+                        <p>Đặt phòng thay giảng viên hoặc đăng ký phòng cho hoạt động chung của nhà trường.</p>
+                        <a href="index.php?action=booking_create" class="feature-link">Tạo booking <span>→</span></a>
+                    </article>
+                    <article class="feature-card">
                         <div class="feature-icon icon-green">🏢</div>
                         <h3>Quản lý phòng</h3>
                         <p>
@@ -820,6 +845,17 @@ if ($isAdmin) {
                         </p>
                         <a href="index.php?action=booking_approvals" class="feature-link">
                             Duyệt yêu cầu <span>→</span>
+                        </a>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon icon-orange">↩</div>
+                        <h3>Duyệt yêu cầu hủy</h3>
+                        <p>
+                            Xem lý do giảng viên xin hủy lịch đã duyệt, sau đó
+                            chấp thuận hoặc từ chối yêu cầu.
+                        </p>
+                        <a href="index.php?action=booking_cancellation_requests" class="feature-link">
+                            Xử lý yêu cầu hủy <span>→</span>
                         </a>
                     </article>
 

@@ -374,5 +374,26 @@ CREATE TABLE IF NOT EXISTS maintenance_history (
     INDEX idx_maintenance_history_report (report_id)
 ) ENGINE=InnoDB;
 
+-- =====================================================
+-- 16. EVENT_NOTIFICATIONS: THONG BAO NGHIEP VU
+-- Bang moi rieng; khong sua bang notifications cu.
+-- =====================================================
+CREATE TABLE IF NOT EXISTS event_notifications (
+    event_notification_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    booking_id INT UNSIGNED NULL,
+    report_id INT UNSIGNED NULL,
+    notification_type VARCHAR(50) NOT NULL,
+    message VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at DATETIME NULL,
+    CONSTRAINT fk_event_notifications_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_event_notifications_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_event_notifications_report FOREIGN KEY (report_id) REFERENCES maintenance_reports(report_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    INDEX idx_event_notifications_user_read (user_id, read_at, created_at),
+    INDEX idx_event_notifications_booking (booking_id),
+    INDEX idx_event_notifications_report (report_id)
+) ENGINE=InnoDB;
+
 USE ql_phong_thuc_hanh;
 SHOW TABLES;

@@ -23,6 +23,28 @@ class NotificationController
         ");
         $stmt->execute(['user_id' => Authorization::userId()]);
         $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($notifications as &$notification) $notification['notification_source'] = 'reminder';
+        unset($notification);
+
+        $eventStmt = $this->db->prepare("
+            SELECT en.event_notification_id AS notification_id, en.booking_id, en.report_id,
+                   en.notification_type, en.message, en.created_at, en.read_at,
+                   b.start_time, b.end_time, r.room_code, r.room_name,
+                   mr.title AS report_title, e.equipment_code, e.equipment_name,
+                   'event' AS notification_source
+            FROM event_notifications en
+            LEFT JOIN bookings b ON b.booking_id = en.booking_id
+            LEFT JOIN rooms r ON r.room_id = b.room_id
+            LEFT JOIN maintenance_reports mr ON mr.report_id = en.report_id
+            LEFT JOIN equipment e ON e.equipment_id = mr.equipment_id
+            WHERE en.user_id = :user_id
+            ORDER BY en.created_at DESC, en.event_notification_id DESC
+            LIMIT 100
+        ");
+        $eventStmt->execute(['user_id' => Authorization::userId()]);
+        $notifications = array_merge($notifications, $eventStmt->fetchAll(PDO::FETCH_ASSOC));
+        usort($notifications, static fn(array $a, array $b): int => strcmp((string)$b['created_at'], (string)$a['created_at']));
+        $notifications = array_slice($notifications, 0, 100);
         require __DIR__ . '/../views/notifications.php';
     }
 
@@ -35,10 +57,12 @@ class NotificationController
         CSRF::verifyOrFail();
         $id = filter_var($_POST['notification_id'] ?? null, FILTER_VALIDATE_INT);
         if (!$id || $id < 1) { http_response_code(400); exit('Thông báo không hợp lệ.'); }
-        $stmt = $this->db->prepare("
-            UPDATE notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
-            WHERE notification_id = :id AND user_id = :user_id
-        ");
+        $source = ($_POST['notification_source'] ?? 'reminder') === 'event' ? 'event' : 'reminder';
+        if ($source === 'event') {
+            $stmt = $this->db->prepare("UPDATE event_notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP) WHERE event_notification_id = :id AND user_id = :user_id");
+        } else {
+            $stmt = $this->db->prepare("UPDATE notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP) WHERE notification_id = :id AND user_id = :user_id");
+        }
         $stmt->execute(['id' => $id, 'user_id' => Authorization::userId()]);
         header('Location: index.php?action=notifications'); exit();
     }

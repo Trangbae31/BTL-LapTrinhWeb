@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../core/CSRF.php';
+require_once __DIR__ . '/../models/NotificationModel.php';
 
 class ReportController
 {
@@ -150,11 +151,46 @@ class ReportController
             throw new RuntimeException('Bạn chỉ được tải lên tối đa 5 ảnh.');
         }
 
-        $uploadDir = dirname(__DIR__, 2)
-            . '/public/uploads/maintenance_reports/';
+        // Không bắt buộc đính kèm ảnh: nếu người dùng không chọn ảnh,
+        // bỏ qua hoàn toàn bước tạo thư mục và lưu file.
+        $hasFile = false;
+        for ($i = 0; $i < $count; $i++) {
+            $error = $files['error'][$i] ?? UPLOAD_ERR_NO_FILE;
 
-        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
-            throw new RuntimeException('Không thể tạo thư mục lưu ảnh.');
+            if ($error === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+
+            if ($error !== UPLOAD_ERR_OK) {
+                throw new RuntimeException(
+                    'Ảnh tải lên không thành công (mã lỗi: ' . (int)$error . ').'
+                );
+            }
+
+            $hasFile = true;
+        }
+
+        if (!$hasFile) {
+            return [];
+        }
+
+        $uploadDir = dirname(__DIR__, 2)
+            . '/public/uploads/maintenance_reports';
+
+        // Tạo thư mục đích nếu chưa có. Kiểm tra lại sau mkdir để xử lý
+        // trường hợp thư mục vừa được tiến trình khác tạo.
+        if (!is_dir($uploadDir)) {
+            if (!@mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                throw new RuntimeException(
+                    'Không thể tạo thư mục lưu ảnh. Hãy kiểm tra quyền ghi của thư mục public/uploads.'
+                );
+            }
+        }
+
+        if (!is_writable($uploadDir)) {
+            throw new RuntimeException(
+                'Thư mục lưu ảnh không có quyền ghi. Hãy cấp quyền ghi cho public/uploads/maintenance_reports.'
+            );
         }
 
         $allowedTypes = [
@@ -172,10 +208,6 @@ class ReportController
 
                 if ($error === UPLOAD_ERR_NO_FILE) {
                     continue;
-                }
-
-                if ($error !== UPLOAD_ERR_OK) {
-                    throw new RuntimeException('Có ảnh tải lên không thành công.');
                 }
 
                 $tmpName = $files['tmp_name'][$i] ?? '';
@@ -198,10 +230,12 @@ class ReportController
 
                 $extension = $allowedTypes[$mime];
                 $fileName = bin2hex(random_bytes(16)) . '.' . $extension;
-                $destination = $uploadDir . $fileName;
+                $destination = $uploadDir . '/' . $fileName;
 
                 if (!move_uploaded_file($tmpName, $destination)) {
-                    throw new RuntimeException('Không thể lưu ảnh tải lên.');
+                    throw new RuntimeException(
+                        'Không thể lưu ảnh. Hãy kiểm tra quyền ghi của thư mục lưu ảnh.'
+                    );
                 }
 
                 $relativePath = 'uploads/maintenance_reports/' . $fileName;
@@ -230,7 +264,7 @@ class ReportController
             foreach ($savedPaths as $path) {
                 $fullPath = dirname(__DIR__, 2) . '/public/' . $path;
                 if (is_file($fullPath)) {
-                    unlink($fullPath);
+                    @unlink($fullPath);
                 }
             }
 
@@ -562,6 +596,8 @@ class ReportController
                 'broken',
                 'Thiết bị được chuyển sang trạng thái hỏng do phát sinh phiếu báo hỏng.'
             );
+            NotificationModel::notifyRoles($db, ['manager', 'admin'], 'maintenance_report_created',
+                'Có phiếu báo hỏng thiết bị mới cần xử lý: ' . $title . ' (Phiếu #' . $reportId . ').', null, $reportId, $userId);
 
             $db->commit();
             $this->redirectToList();
@@ -657,6 +693,10 @@ class ReportController
                 'new_status' => $report['status'],
                 'note' => $note
             ]);
+            if ((int)($report['assigned_to'] ?? 0) !== $technicianId) {
+                NotificationModel::create($db, $technicianId, 'maintenance_assigned',
+                    'Bạn được phân công xử lý phiếu bảo trì #' . $reportId . ': ' . $note, null, $reportId);
+            }
 
             $db->commit();
             $this->redirectToList();
@@ -783,7 +823,7 @@ class ReportController
             $db->beginTransaction();
 
             $stmt = $db->prepare("
-                SELECT report_id, equipment_id, assigned_to, status
+                SELECT report_id, equipment_id, reporter_id, assigned_to, status
                 FROM maintenance_reports
                 WHERE report_id = :report_id
                   AND assigned_to = :user_id
@@ -858,6 +898,16 @@ class ReportController
                     ? $note
                     : 'Kỹ thuật viên bắt đầu xử lý phiếu.'
             ]);
+            if ((int)$report['reporter_id'] !== $userId) {
+                NotificationModel::create($db, (int)$report['reporter_id'],
+                    $newStatus === 'resolved' ? 'maintenance_resolved' : 'maintenance_processing',
+                    $newStatus === 'resolved' ? 'Phiếu báo hỏng #' . $reportId . ' đã được xử lý xong.'
+                        : 'Phiếu báo hỏng #' . $reportId . ' đang được kỹ thuật viên xử lý.', null, $reportId);
+            }
+            if ($newStatus === 'resolved') {
+                NotificationModel::notifyRoles($db, ['manager', 'admin'], 'maintenance_resolved',
+                    'Phiếu báo hỏng #' . $reportId . ' đã được xử lý hoàn tất.', null, $reportId, $userId);
+            }
 
             if ($equipment['status'] !== 'retired') {
                 $open = $db->prepare("

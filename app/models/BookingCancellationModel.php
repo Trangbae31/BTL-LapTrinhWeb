@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/NotificationModel.php';
 
 class BookingCancellationModel
 {
@@ -92,6 +93,8 @@ class BookingCancellationModel
                 'requester_id' => $requesterId,
                 'reason' => $reason
             ]);
+            NotificationModel::notifyRoles($this->db, ['manager', 'admin'], 'booking_cancel_request',
+                'Có yêu cầu hủy lịch đặt phòng cần xử lý (Booking #' . $bookingId . ').', $bookingId, null, $requesterId);
 
             $this->db->commit();
 
@@ -231,6 +234,7 @@ class BookingCancellationModel
             if (
                 !$booking ||
                 !$request ||
+                (int)$request['requester_id'] !== (int)$booking['user_id'] ||
                 $request['status'] !== 'pending' ||
                 $booking['status'] !== 'approved' ||
                 strtotime($booking['start_time']) <= time()
@@ -285,6 +289,11 @@ class BookingCancellationModel
                 $this->db->rollBack();
                 return false;
             }
+            NotificationModel::create($this->db, (int)$request['requester_id'],
+                $decision === 'approved' ? 'booking_cancel_approved' : 'booking_cancel_rejected',
+                $decision === 'approved'
+                    ? 'Yêu cầu hủy lịch của bạn đã được chấp thuận (Booking #' . $bookingId . ').'
+                    : 'Yêu cầu hủy lịch của bạn đã bị từ chối (Booking #' . $bookingId . ').', $bookingId);
 
             $this->db->commit();
 
